@@ -1,0 +1,1321 @@
+---
+title: "03_Fix_station_duplicates2"
+author: "DHJ"
+date: "11 6 2021"
+output: 
+  html_document:
+    keep_md: true  
+    toc: true
+    toc_float: true  
+---
+
+* Check (not so much fix) stations that apparently are different, typically slight differences in coordinates between EMODnet and ICES data, as well as differences in "Originator"       
+* Calculates the 'duplicate check' dataset 'df_check_all' for all 'station pairs' with the same station name (SD_StationName)     
+* Finland not done yet (no values for SD_StationName, needs to rely on coordinates)  
+
+```{r}
+
+knitr::opts_chunk$set(results = "hold")  
+
+```
+
+
+## 1. Packages    
+```{r}
+
+library(dplyr)
+library(purrr)
+library(furrr)      # future_map
+library(tidyr)
+library(ggplot2)
+library(ggeasy)
+library(lubridate)
+library(forcats)
+
+source("02_Fix_station_duplicates_functions.R")
+
+```
+
+## 2. Read data  
+```{r}
+
+dat_a_old <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
+dat_a <- readRDS("Data/01_Combined_data_with_duplicates_a_with_PT.rds")
+
+cat("nrow(dat_a): ", nrow(dat_a), "\n")
+cat("nrow difference: ", nrow(dat_a) - nrow(dat_a_old), "\n")
+
+# dat_b <- readRDS("Data/01_Combined_data_with_duplicates_b.rds")
+
+```
+
+### A little cleaning  
+```{r}
+
+latlong <- "42.613_14.166"   # Italy
+basis <- "W"
+
+dat_a %>%
+  filter(LatLong == latlong & BASIS == basis) %>% 
+  xtabs(~PARAM + Year, .)
+
+dat_a %>%
+  filter(LatLong == latlong & PARAM == "HG" & BASIS == basis) %>% 
+  ggplot(aes(Year, Value, color = Dataset, size = Dataset)) +
+  geom_point() +
+  scale_size_manual(values = c(2,1)) +     # make 'val1' dots bigger
+  easy_rotate_labels()
+
+sel <- with(dat_a, LatLong == latlong & BASIS == basis & Value > 1000); sum(sel)  
+dat_a <- dat_a[!sel,]
+
+```
+#### Fix fat weight  
+```{r}
+
+if (FALSE)
+  table(addNA(dat_a$FATWT_MUNIT))
+#       %     g/g    <NA> 
+#  241142     257 1312129 
+
+sel <- dat_a$FATWT_MUNIT %in% "g/g"
+dat_a$FATWT[sel] <- dat_a$FATWT[sel]*100
+dat_a$FATWT_MUNIT[sel] <- "%"
+cat("Changed", sum(sel), "fat fraction unit to % \n\n")
+
+cat("Fat weight fraction, unit: \n")
+table(addNA(dat_a$FATWT_MUNIT))
+cat("\n\n")
+cat("Dry weight fraction, unit: \n")
+table(addNA(dat_a$DRYWT_MUNIT))
+
+  
+```
+
+
+## 3. Check duplication by station   
+* In some cases, data which apparently comes from the same staton the same year (with same measurement values)
+* In other cases, there are not data from the same year, but times series are fragmented because they apparently belong to different stations   
+
+### Most common variables   
+- Used in duplicate check below  
+```{r}
+
+tab_loq_mean <- dat_a %>%
+   group_by(PARAM) %>% 
+   summarise(over_LOQ = mean(is.na(QFLAG))) %>% 
+   arrange(desc(over_LOQ)) 
+
+# pull(tab_loq_mean, PARAM) %>% head(30)
+
+tab_loq_n <- dat_a %>%
+   group_by(PARAM) %>% 
+   summarise(over_LOQ = sum(is.na(QFLAG))) %>% 
+   arrange(desc(over_LOQ)) 
+
+# pull(tab_loq_n, PARAM) %>% head(30) %>% dput()
+
+# list of 20
+param_selected <- c(
+  "HG", "CD", "ZN", "CU", "PB", "NI", "CR", 
+  "CB153", "CB118", "CB138", "CB101", 
+  "DDEPP", "HCB", "HCHG", "HCHA","BDE47", 
+  "FLU", "PYR", "PA", "BAP")
+length(param_selected)
+
+# list of 13
+param_selected <- c(
+  "HG", "CD", "ZN", "CU", "PB",  
+  "CB153", "CB118",  
+  "DDEPP", "HCB", "HCHG", "BDE47", 
+  "FLU", "BAP")
+length(param_selected)
+
+# List of 18, including all 7 PCBs
+param_selected <- c(
+  "HG", "CD", "ZN", "CU", "PB",  
+  "CB28", "CB52", "CB101", "CB118", "CB138", "CB153", "CB180",
+  "DDEPP", "HCB", "HCHG", "BDE47", 
+  "FLU", "BAP", "PFOS", "PFAS")
+length(param_selected)
+
+
+```
+### Species-specific bivalve fat and dry weights  
+- From OSPAR (https://ocean.ices.dk/ohat/trDocuments/2021/help_ac_basis_conversion.html )   
+- For MAcoma baltica, see part 8  
+```{r}
+
+df_bivalve_dryweight <- read.csv(textConnection("
+WoRMS_scientificName, Common_name, FATWT_species, DRYWT_species
+Cerastoderma edule,	common cockle, NA, 19.0 		
+Mya arenaria, softshell clam, 0.7, 14.8 		
+Ruditapes philippinarum, manila clam, NA, 16.0 		
+Mytilus edulis, blue mussel, 1.4, 16.3 		
+Mytilus galloprovincialis, Mediteranean mussel, 2.2, 19.0 		
+Crassostrea gigas, Pacific oyster, 2.1, 18.0 		
+Ostrea edulis, native oyster, 1.8, 20.4,
+Macoma balthica, Baltic clam, NA, 19.96,
+"), 
+stringsAsFactors = FALSE,
+colClasses = c("character", "character", "double", "double"))
+
+saveRDS(df_bivalve_dryweight, "Data/03_df_bivalve_dryweight.rds")
+
+species_selected <- df_bivalve_dryweight$WoRMS_scientificName
+
+# Check
+tab <- table(dat_a$WoRMS_scientificName)
+cat(100*mean(species_selected %in% rownames(tab)), 
+    "% of names found in dat_a \n")
+
+dat_a %>%
+  filter(WoRMS_scientificName %in% species_selected) %>%
+  count(WoRMS_scientificName)
+
+tab[order(tab)] %>% rev() %>% head(30)
+
+```
+
+
+### Matrix used for bivalves   
+```{r}
+
+# Check matrices used  
+#
+# FA, MU&FA and SB  
+# SB = whole soft body
+# MU&FA = muscle and fat  
+# FA = fat, seems to be used as a very uncommon "synonym" of BASIS = "F" (sometimes as dublettes)
+# TM = tail muscle, used for a very few Mytilus edulis (!)
+# WO = whole organism, used for a very few Mytilus edulis  
+# MU used for PCB in two years in Lithuania and United Kingdom (for both, SD_StationName = NA; in UK 3-4 locations)
+
+tab <- dat_a %>%
+  filter(PARAM %in% param_selected & WoRMS_scientificName %in% species_selected) %>% 
+  xtabs(~MATRX, .)
+cat("Numbers by matrix: \n")
+tab
+
+cat("\n\nPercentages: \n")
+round(tab/sum(tab)*100, 2)
+
+cat("\n\nPercentage MU&FA + SB: \n")
+round(sum(tab[c("MU&FA", "SB")])/sum(tab)*100, 2)
+# 99.7% of t
+
+# MATRX
+# FA     MU  MU&FA     SB     TM     WO 
+# 16     59 110673 193230     16     14 
+
+
+cat("\n\nNumbers by species: \n")
+dat_a %>%
+  filter(PARAM %in% param_selected & WoRMS_scientificName %in% species_selected) %>%
+  xtabs(~WoRMS_scientificName  + MATRX, .)
+
+if (FALSE){
+  
+  # example of "FA" 
+  df <- dat_a %>%
+    filter(grepl("CB", PARAM) & SD_StationName == "Byttelocket" & WoRMS_scientificName %in% "Mytilus edulis" & Year == 2006)
+  xtabs(~PARAM + MATRX, df)
+  xtabs(~BASIS + MATRX, df)
+  
+  dat_a %>%
+    filter(PARAM %in% param_selected & WoRMS_scientificName %in% species_selected & MATRX %in% "MU") %>%
+    xtabs(~addNA(SD_StationName), .)
+
+  # MATRX %in% "MU"
+  df <- dat_a %>%
+    filter(PARAM %in% param_selected & WoRMS_scientificName %in% species_selected & MATRX %in% "MU")
+  xtabs(~Year + addNA(SD_StationName) + Country, df)
+  View(df)
+  
+
+}
+
+```
+## 4a. Select subset of data   
+
+### dat_2: Subset by species, matrix and parameters   
+-From now on, we can ignore matrix  
+```{r}
+
+dat_2 <- dat_a %>%
+  filter(
+    WoRMS_scientificName %in% species_selected &
+      MATRX %in% c("MU&FA", "SB") &
+      PARAM %in% param_selected
+      )
+
+nrow(dat_a)
+nrow(dat_2)
+
+```
+
+### Units   
+Fixed already  
+```{r}
+
+dat_2 %>%
+  xtabs(~addNA(UNIT), .)
+
+```
+
+### Check duplicates within ICES data  
+- Same SampleIdentifier, SubsampleIdentifier (so we only check ICES, these are empty for EMODnet)  
+- Check 
+    - Some observations recorded with two different units    
+    - Most have just two observations of the same unit  
+    - Difference can be quite big   
+    - Very often one below detection linit, one above    
+```{r}
+
+if (FALSE){
+  # example
+  dat_2 %>%
+    filter(grepl("Porto de Pescas", SD_StationName) & Year == 2010 & PARAM == "CB118") %>%
+    select(SampleIdentifier, SubsampleIdentifier, PARAM, 
+           Value_orig, UNIT_orig, Value, UNIT)
+}
+
+  
+df_dublettes <- dat_2 %>%
+  filter(Dataset == "ICES") %>%
+  group_by(SampleIdentifier, SubsampleIdentifier, PARAM) %>%
+  arrange(SampleIdentifier, SubsampleIdentifier, PARAM, UNIT_orig) %>%
+  mutate(n = n(), 
+         Units = paste(unique(UNIT_orig), collapse = ","),
+         Mean = mean(Value),
+         Range = diff(range(Value)),
+         Range_rel = Range/Mean) %>%
+  ungroup()
+         
+
+xtabs(~n, df_dublettes)
+
+df_dublettes %>%
+  filter(n > 1) %>%
+  xtabs(~Units, .)
+
+if (FALSE){
+  
+  df_dublettes %>%
+    filter(n > 1 & Units == "ug/g") %>%
+    select(SD_StationName, SD_StationCode, Year, Samplingtime, SampleIdentifier,
+           Value, UNIT, Units, Mean, Range, Range_rel) %>% 
+    View()
+  
+}
+
+#
+# Dublettes with different original units
+#
+df <- df_dublettes %>%
+  filter(n > 1 & Units %in% c("ng/g,ng/kg"))
+
+if (FALSE){
+  df %>%
+    select(SD_StationName, SD_StationCode, Year, Samplingtime, SampleIdentifier,
+           Value, QFLAG,UNIT_orig, UNIT, Mean, Range, Range_rel) %>%
+    View()
+}
+
+#
+# Dublettes with same original unit
+#
+df <- df_dublettes %>%
+  filter(n > 1 & Units %in% c("ug/g","ug/kg")) 
+
+if (FALSE){
+  df %>%
+    select(SD_StationName, SD_StationCode, Year, Samplingtime, SampleIdentifier,
+           Value, QFLAG, UNIT_orig, UNIT, Mean, Range, Range_rel) %>%
+    View()
+}
+
+
+
+```
+### dat_3: remove ICES duplicates    
+- We pick the highest one (and it's QFLAG value)   
+```{r}
+
+data_for_replacement <- dat_2 %>%
+  filter(Dataset == "ICES") %>%
+  group_by(SampleIdentifier, SubsampleIdentifier, PARAM) %>%
+  arrange(SampleIdentifier, SubsampleIdentifier, PARAM, desc(Value)) %>%
+  mutate(n = n(), 
+         value_no = 1:length(Value),
+         Value = first(Value),
+         QFLAG = first(QFLAG),
+         .groups = "drop") %>%
+  ungroup() %>%
+  filter(
+    n > 1 &           # pick duplicates 
+    value_no == 1)    # pick no. 1 of the duplicates
+cat(nrow(data_for_replacement), "rows of data to replace duplicates")
+
+dat_3_emodnet <- dat_2 %>%
+  filter(Dataset == "EMODnet")
+
+dat_3_ices_without_dupl <- dat_2 %>%
+  filter(Dataset == "ICES") %>%
+  anti_join(
+    data_for_replacement, by = c("SampleIdentifier", "SubsampleIdentifier", "PARAM")
+  )
+
+n1 <- nrow(dat_2 %>% filter(Dataset == "ICES"))
+n2 <- nrow(dat_3_ices_without_dupl)
+cat("\n")
+cat(n1-n2, "duplicate rows removed from dat_2 \n")
+cat("'data_for_replacement' can replace", nrow(data_for_replacement)*2, "rows \n")
+cat("  (as all duplicates are 2 copies) \n")
+
+dat_3 <- bind_rows(
+  dat_3_emodnet,
+  dat_3_ices_without_dupl,
+  data_for_replacement %>% select(-n, -value_no)
+)
+
+n1 <- nrow(dat_2)
+n2 <- nrow(dat_3)
+
+cat("\n")
+cat("'dat_2' had", nrow(dat_2), "rows \n")
+cat("'dat_3' has", nrow(dat_3), "rows \n")
+cat("- difference =", n1-n2, "rows \n")
+
+
+
+```
+
+### Table: Number of years per country/dataset and parameter   
+* Note that some countries, (Denmark, Estonia, Finland, Sweden) have time series from both ICES and EMODnet  
+* Means possible duplication  
+```{r}
+
+#  [1] "CB138" "CB153" "HCHG"  "TDEPP" "CB180" "PB"    "CB105" "CB28"  "CD"    "CB101" "CB52" 
+# [12] "BKF"   "BGHIP" "ANT"   "BAP"   "CR"    "FLE"   "CB118" "CU"    "DDTPP" "CB156" "ACNLE"
+# [23] "HG"    "DDEPP" "NAP"   "PA"    "ZN"    "BBF"   "FLU"   "BAA"   "NI"    "ACNE"  "DBAHA"
+# [34] "CHR"   "ICDP"  "PYR"   "TBTIN" "HCB"   "HCHA"  "ALD"   "LNMEA" "AS"    "HCBD"  "DIELD"
+# [45] "CB128" "CB194" "HCHB"  "TBSN+" "CB170" "DBT"   "CB183" "BDE47" "BD100" "BD153" "BDE99"
+# [56] "BD154" "SCCP"  "DEHP"  "TPSN+" "BBJKF" "CHRTR" "HCEPX" "ISOD"  "HEPC"  "ENDA"  "END"  
+# [67] "QCB" 
+
+# Number of years per country/dataset for a selectiopn of parameters  
+tab_a <- dat_3 %>%
+  filter(PARAM %in% param_selected) %>%
+  mutate(Country = paste0(Country, "_", substr(Dataset, 1, 4))) %>%
+  distinct(PARAM, Country, Year) %>%
+  xtabs(~Country + PARAM, .)  
+
+tab_a
+
+# tab_b <- dat_b %>%
+#   filter(PARAM %in% c("CD","HG","PB","HCB","HCHG","DDEpp","CB101","BAP")) %>%
+#   mutate(Country = paste0(Country, "_", substr(Dataset, 1, 4))) %>%
+#   distinct(PARAM, Country, Year) %>%
+#   xtabs(~Country + PARAM, .)  
+# 
+# tab_diff <- tab_a - tab_b
+  
+# colnames(tab_a) <- paste0(colnames(tab_a), "_a")
+# colnames(tab_b) <- paste0(colnames(tab_b), "_b")
+
+# tab_comb <- cbind(tab_a, tab_b)  
+# tab_comb
+
+```
+### Check SD_StationCode  
+- Only in 3 cases does one SD_StationName have >1  SD_StationCode  
+- No iverlap in years, probably just a minor change in coordinates  
+- We assume they are the same (i.e, we use 'SD_StationName')   
+```{r}
+
+df1 <- dat_3 %>% 
+  filter(!is.na(SD_StationName)) %>%
+  distinct(SD_StationName, SD_StationCode) %>%
+  count(SD_StationName) %>%
+  filter(n > 1)
+# nrow(df1)
+df1
+
+dat_3 %>%
+  filter(SD_StationName %in% pull(df1, SD_StationName)) %>%  
+  xtabs(~Year + SD_StationCode + SD_StationName, .)  
+
+cat("Max distances (km) for the 3 stations with different 'SD_StationCode': \n")
+i <- 1
+df2 <- dat_3 %>%
+  filter(SD_StationName %in% pull(df1, SD_StationName)[i]) %>%  
+  distinct(SD_StationCode, Longitude, Latitude) %>%
+  mutate(id = paste(SD_StationCode, Longitude, Latitude, sep = "_"))  
+df3 <- earth.dist.pairwise(df2, var_id = "id")
+pull(df3, dist) %>% max(na.rm = TRUE)
+# < 250 m distance. Older data (2005) and changed SD_StationCode in 2004/05  
+
+i <- 2
+df2 <- dat_3 %>%
+  filter(SD_StationName %in% pull(df1, SD_StationName)[i]) %>%  
+  distinct(SD_StationCode, Longitude, Latitude) %>%
+  mutate(id = paste(SD_StationCode, Longitude, Latitude, sep = "_"))
+df3 <- earth.dist.pairwise(df2, var_id = "id")
+pull(df3, dist) %>% max(na.rm = TRUE)
+# 1.3 km distance. Newer data (2018) but changed SD_StationCode in 2001  
+
+i <- 3
+df2 <- dat_3 %>%
+  filter(SD_StationName %in% pull(df1, SD_StationName)[i]) %>%  
+  distinct(SD_StationCode, Longitude, Latitude) %>%
+  mutate(id = paste(SD_StationCode, Longitude, Latitude, sep = "_"))
+df3 <- earth.dist.pairwise(df2, var_id = "id")
+pull(df3, dist) %>% max(na.rm = TRUE)
+# 3.1 km distance. Old data, up to 2001  
+
+```
+
+
+### Add ID  
+```{r}
+
+# xtabs(~is.na(LatLong) + is.na(SD_StationName), dat_3)
+
+dat_3 <- dat_3 %>%
+  mutate(
+    id = case_when(
+      !is.na(SD_StationName) ~ SD_StationName,
+      is.na(SD_StationName) ~ LatLong
+    )
+  )
+
+```
+
+### Check SubsampleIdentifier 
+- Are there >1 per SampleIdentifier?  
+```{r}
+
+df1 <- dat_3 %>% 
+  filter(!is.na(SampleIdentifier)) %>%
+  distinct(SampleIdentifier, SubsampleIdentifier) %>%
+  count(SampleIdentifier) %>%
+  filter(n > 1)
+# nrow(df1)
+table(df1$n)
+
+
+```
+### dat_4: EMODnet data summarized  
+- Summarize per station/year  
+- We need to do that to summarize PCB7, since we have no way to distinguish samples    
+```{r}
+
+# dat_3 %>% names() %>% paste(collapse = ", ")
+
+dat_4_emod <- dat_3 %>%
+  filter(Dataset == "EMODnet") %>%
+  group_by(
+    Dataset, Year, Month, MSFD_region, Country, SD_StationName, MYEAR, Originator,
+    Samplingtime, Latitude, Longitude, SampleIdentifier, SubsampleIdentifier,
+    WoRMS_scientificName, WoRMS_AphiaID, WoRMS_accepted_scientificName, WoRMS_accepted_AphiaID, 
+    SEXCO, PARAM, PARGROUP, MATRX, BASIS, id) %>%
+  summarise(
+    Value = median(Value, na.rm = TRUE),
+    QFLAG_mean = mean(!is.na(QFLAG)),
+    QFLAG = ifelse(QFLAG_mean > 0.5, "<", as.character(NA))
+    )
+
+dat_4 <- bind_rows( 
+  dat_3 %>% filter(Dataset == "ICES"),
+  dat_4_emod %>% select(-QFLAG_mean)
+  )
+
+```
+
+
+
+
+## 4b. Sum PCB   
+
+### Definitions  
+
+```{r}
+
+param_pcb7 <- c("CB28", "CB52", "CB101", "CB118", "CB138", "CB153", "CB180")
+param_pcb6 <- c("CB28", "CB52", "CB101", "CB138", "CB153", "CB180")
+
+```
+
+
+### Check data  
+
+```{r, fig.width=9, fig.height=4}
+
+dat_4 %>%
+  filter(PARAM %in% param_pcb7) %>%
+  xtabs(~BASIS + Dataset, .)
+
+dat_4 %>%
+  filter(PARAM %in% param_pcb7) %>%
+  xtabs(~BASIS + Country, .)
+
+dat_4 %>%
+  filter(PARAM %in% param_pcb7 & BASIS == "W" & Year >= 2010) %>%
+  mutate(PARAM = factor(PARAM, levels = param_pcb7)) %>%
+  group_by(id, PARAM) %>%
+  summarise(Value_median = median(Value)) %>%
+  ggplot(aes(id, PARAM, fill = Value_median)) +
+  geom_tile() +
+  easy_rotate_x_labels()
+
+```
+
+
+### PCBs on broad format     
+```{r}
+
+df_pcb_1 <- dat_4 %>%
+  filter(PARAM %in% param_pcb7) %>%
+  mutate(PARAM = factor(PARAM, levels = param_pcb7)) %>%
+  select(Dataset, Year, Month, MSFD_region, Country, SD_StationName, MYEAR, Originator,
+    Samplingtime, Latitude, Longitude, SampleIdentifier, SubsampleIdentifier,
+    WoRMS_scientificName, WoRMS_AphiaID, WoRMS_accepted_scientificName, WoRMS_accepted_AphiaID, 
+    SEXCO, PARAM, PARGROUP, MATRX, BASIS, id, Value)
+
+
+df_pcb <- df_pcb_1 %>%
+  pivot_wider(names_from = PARAM, values_from = Value)
+
+# if you get 'Warning: Values are not uniquely identified; output will contain list-cols'
+if (FALSE)
+  check <- df_pcb_1 %>%
+    pivot_wider(names_from = PARAM, values_from = Value, values_fn = length)
+
+# Sum PCB7
+df_pcb$PCB7 <- apply(df_pcb[param_pcb7], 1, sum, na.rm = TRUE)
+# Number of PCBs
+df_pcb$PCB7_n <- apply(!is.na(df_pcb[param_pcb7]), 1, sum)
+
+# Sum PCB6
+df_pcb$PCB6 <- apply(df_pcb[param_pcb6], 1, sum, na.rm = TRUE)
+# Number of PCBs
+df_pcb$PCB6_n <- apply(!is.na(df_pcb[param_pcb6]), 1, sum)
+
+# Table of number of PCBs
+tab <- xtabs(~Year + PCB7_n, df_pcb)
+tab <- cbind(tab, apply(tab, 1, sum))
+
+# Plot 
+plot(as.numeric(rownames(tab)), 100*tab[,7]/tab[,8], 
+     type = "b",
+     main = "Percentage with 7 PCBs", ylab = "Percent")
+
+# Plot of PCB7 vs PCB6  
+ggplot(df_pcb, aes(PCB6, PCB7)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1)
+
+df_pcb %>%
+  mutate(Ratio = PCB7/PCB6) %>%
+  ggplot(aes(PCB6, PCB7, color = Ratio)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1)
+
+if (FALSE){
+  
+  stem(df_pcb$PCB7 / df_pcb$PCB6)
+
+  # Some stations have extremely high CB118 values compare to rest of CBs 
+  df_pcb %>%
+    mutate(Ratio = PCB7/PCB6) %>%
+    filter(Ratio > 2) %>%
+    View("Hi PCB7/PCB6")
+  
+  
+}
+
+
+```
+
+
+### Flag for PCB6 + PCB7
+```{r}
+
+df_pcb_2 <- dat_4 %>%
+  filter(PARAM %in% param_pcb7) %>%
+  mutate(PARAM = factor(PARAM, levels = param_pcb7),
+         QFLAG = ifelse(is.na(QFLAG), as.character(NA), "<")) %>%
+  select(Dataset, Year, Month, MSFD_region, Country, SD_StationName, MYEAR, Originator,
+    Samplingtime, Latitude, Longitude, SampleIdentifier, SubsampleIdentifier,
+    WoRMS_scientificName, WoRMS_AphiaID, WoRMS_accepted_scientificName, WoRMS_accepted_AphiaID, 
+    SEXCO, PARAM, PARGROUP, MATRX, BASIS, id, QFLAG)
+
+df_pcb7_flag <- df_pcb_2 %>%
+  pivot_wider(names_from = PARAM, values_from = QFLAG)
+
+df_pcb6_flag <- df_pcb_2 %>%
+  filter(PARAM %in% param_pcb6) %>%
+  pivot_wider(names_from = PARAM, values_from = QFLAG)
+
+# Fraction of flags indicating <LOQ 
+df_pcb7_flag$QFLAG_mean <- apply(!is.na(df_pcb7_flag[param_pcb7]), 1, mean)
+df_pcb6_flag$QFLAG_mean <- apply(!is.na(df_pcb6_flag[param_pcb6]), 1, mean)
+
+# New flag
+df_pcb7_flag$QFLAG <- ifelse(df_pcb7_flag$QFLAG_mean > 0.5, "<", as.character(NA))
+df_pcb6_flag$QFLAG <- ifelse(df_pcb6_flag$QFLAG_mean > 0.5, "<", as.character(NA))
+
+df_pcb7_flag %>%
+  group_by(Year) %>%
+  summarise(QFLAG_mean = mean(QFLAG_mean)) %>%
+  ggplot(aes(Year, QFLAG_mean)) + geom_point() +
+  labs(main = "Flag of PCB7")
+
+df_pcb6_flag %>%
+  group_by(Year) %>%
+  summarise(QFLAG_fraction = mean(!is.na(QFLAG))) %>%
+  ggplot(aes(Year, QFLAG_fraction)) + geom_point() +
+  labs(main = "Flag of PCB6")
+
+```
+
+
+### dat_5: Add PCB7 + PCB6 to data  
+
+```{r}
+
+df_pcb7_values <- df_pcb %>%
+  select(Dataset:id, PCB7) %>%
+  rename(Value = PCB7)
+nrow(df_pcb7_values)
+
+df_pcb6_values <- df_pcb %>%
+  select(Dataset:id, PCB6) %>%
+  rename(Value = PCB6)
+nrow(df_pcb6_values)
+
+df_pcb7_for_adding <- df_pcb7_values %>%
+  mutate(
+    PARAM = "PCB7",
+    QFLAG = df_pcb7_flag$QFLAG)
+
+common_names <- c(
+  c("Dataset", "Year", "Month", "MSFD_region", "Country", "SD_StationName", "MYEAR", 
+    "Originator", "Samplingtime", "Latitude", "Longitude", "SampleIdentifier", 
+    "SubsampleIdentifier", "WoRMS_scientificName", "WoRMS_AphiaID", "WoRMS_accepted_scientificName",
+    "WoRMS_accepted_AphiaID", "SEXCO", "PARGROUP", "MATRX", "BASIS", "id"))
+
+df_pcb6_for_adding <- df_pcb6_values %>%
+  left_join(df_pcb6_flag[c(common_names, "QFLAG")],
+            by = common_names) %>%
+  mutate(
+    PARAM = "PCB6")
+
+nrow(df_pcb7_for_adding)
+nrow(df_pcb6_for_adding)
+
+dat_5 <- bind_rows(
+  dat_4,
+  df_pcb7_for_adding,
+  df_pcb6_for_adding)  
+
+```
+
+### Percentage PCB7 over LOQ     
+```{r}
+
+dat_5 %>%
+  filter(WoRMS_scientificName %in% species_selected) %>%
+  filter(PARAM %in% c(param_pcb7, "PCB7")) %>%
+  mutate(PARAM = factor(PARAM, levels = c(param_pcb7, "PCB7"))) %>%
+  group_by(PARAM, Year) %>%
+  summarise(over_loq_perc = round(100*mean(is.na(QFLAG)),1),
+            .group = "drop") %>%
+  filter(Year >= 2000) %>%
+  ggplot(aes(Year, over_loq_perc, color = PARAM)) +
+  geom_line()
+
+```
+
+## 5. Select by month
+
+
+### Distribution of month by country  
+- Note early spring data in UK (esp. Feb-March)    
+- Note that Croatia has mainly March data   
+- Big spread 
+```{r}
+
+if (FALSE)
+  dat_5 %>% xtabs(~Country + Month, .)
+
+dat_5 %>%
+  ggplot(aes(Month)) +
+  geom_histogram(binwidth = 1) +
+  facet_wrap(vars(Country), scales = "free_y")
+
+```
+
+### Examples - one country/parameter/year by month    
+- The source of discrepancies between ICES and EMODnet data is that EMODnet also contains spring data    
+```{r, fig.width=9, fig.height=6}
+
+param <- "HG"
+
+country <- "France"; year <- 2014; basis <- "D"
+# country <- "Italy"; year <- 2017; basis <- "W"
+# country <- "Germany"; year <- 2015; basis <- "D"
+# country <- "Ireland"; year <- 2018; basis <- "W"
+# country <- "Ukraine"; year <- 2005; basis <- "W"
+# country <- "Slovenia"; year <- 2005; basis <- "W"
+# country <- "The Netherlands"; year <- 2019; basis <- "W"
+
+# For Slovenia:
+# dat_3 %>%
+#   filter(Country == country) %>%
+#   xtabs(~PARAM + Year + BASIS, .)
+
+dat_3 %>% 
+  filter(Country == country & PARAM == param) %>%
+  xtabs(~BASIS + Year, .)
+
+# Ignoring month     
+dat_3 %>% 
+  filter(Country == country & PARAM == param & Year == year & BASIS == basis) %>% 
+  # View()
+  ggplot(aes(id, Value, color = Dataset, size = Dataset)) +
+  geom_point() +
+  scale_size_manual(values = c(2,1)) +     # make 'val1' dots bigger
+  easy_rotate_labels()
+
+# Faceted by month 
+dat_3 %>% 
+  filter(Country == country & PARAM == param & Year == year & BASIS == basis) %>%
+  ggplot(aes(id, Value, color = Dataset, size = Dataset)) +
+  geom_point() +
+  scale_size_manual(values = c(2,1)) +    # make 'val1' dots bigger
+  facet_wrap(vars(Month)) +
+  easy_rotate_labels()
+
+```
+
+#### UK  
+```{r, fig.width=9, fig.height=6}
+
+if (FALSE){
+  dat_5 %>% 
+    filter(Country == "United Kingdom") %>% xtabs(~Year + PARAM + BASIS, .)
+}
+
+
+# Based on the raw data - faceted by month 
+dat_5 %>% 
+  filter(Country == "United Kingdom" & PARAM == "HG" & Year == 2018 & BASIS == "W") %>%
+  ggplot(aes(id, Value, color = Dataset, size = Dataset)) +
+  geom_point() +
+  scale_size_manual(values = c(2,1)) +    # make 'val1' dots bigger
+  facet_wrap(vars(Month)) +
+  easy_rotate_labels("x")
+
+```
+
+
+### dat_6: Delete French spring data  
+```{r}
+
+dat_6 <- dat_5 %>%
+  filter(!(Country == "France" & Month <= 6))
+
+nrow(dat_5)
+nrow(dat_6)
+
+```
+
+### Save dat_6  
+```{r}
+  
+saveRDS(dat_6, "Data/03_dat_6.rds")
+
+```
+
+
+## 6. Basis conversion    
+- Add species-specific DW and fat weight to data  
+- Dry weight: Use sample-specific when possible, otherwise species-specific  
+- Fat weight: Use species-specific anyway  
+```{r}
+
+table(!is.na(dat_6$DRYWT), addNA(dat_6$DRYWT_MUNIT))
+
+dat_7 <- dat_6 %>%
+  left_join(df_bivalve_dryweight) %>%
+  mutate(
+    DRYWT = case_when(
+      !is.na(DRYWT) & DRYWT_MUNIT %in% "%" ~ DRYWT,  # some 1000s lack 'DRYWT_MUNIT'  
+      TRUE ~ DRYWT_species
+    ),
+    DRYWT_MUNIT = "%"
+    )
+
+# table(!is.na(dat_7$DRYWT), addNA(dat_7$DRYWT_MUNIT))
+# nrow(dat_6)
+cat("nrow(dat_7): ", nrow(dat_7), "\n")
+
+```
+
+### Save dat_7    
+
+* These are the main datan used onwards in script 04 
+- Note: we do *not* filter by temporal coverage at this point, as ICES + EMODnet time series must by joined first   
+
+```{r}
+
+saveRDS(dat_7, "Data/03_dat_7.rds")
+
+```
+
+## 7a. Duplicate check, same name         
+
+- Duplicate check of all stations with same name   
+- Note: when reading tables/graphs, "1" is EMODnet and "2" is ICES (e.g. val1, val2)  
+
+#### - stations in both EMODnet and ICES data    
+Table shows number of years per station and dataset  
+```{r}
+
+param_selected_cb7 <- c(param_selected, "PCB7")
+
+table(dat_7$Dataset)
+
+tab_a <- dat_7 %>%
+  filter(PARAM %in% param_selected_cb7) %>%
+  mutate(Country = paste0(Country, "_", substr(Dataset, 1, 4))) %>%
+  distinct(id, Country, Dataset, Year) %>% # View()
+  xtabs(~id + Dataset, .)  
+
+cat("Dataset with EMODnet data a \n\n")
+sel <- apply(tab_a>0, 1, sum) > 1
+cat(sum(sel), "stations have data in both datasets\n")  
+cat(100*round(mean(sel),3), "% of stations have data in both datasets\n\n")  
+
+# Get stations with data in both datasets
+stations_dupl <- rownames(tab_a[sel,])
+
+```
+
+#### - prepare data sets  
+
+```{r}
+
+# Make data set with extra stations for checking (see 'DK4' in script 1)
+dat_test <- dat_7 %>%
+  filter(id %in% stations_dupl) %>%
+  filter(PARAM %in% param_selected_cb7) %>%
+  mutate(
+    Station_dataset = paste0(id, "_", Dataset),  # 'station' names  
+    MATRX = ifelse(MATRX %in% "MU&FA", "SB", MATRX)          # hypothesis: these two are the same
+  )
+
+# distance between ICES and EMODnet stations - will be added later  
+dat_distance <- dat_test %>%
+  group_by(id, Dataset) %>%
+  summarise(across(c(Longitude, Latitude), first), .groups = "drop") %>%
+  ungroup() %>%
+  pivot_wider(names_from = Dataset, values_from = c(Longitude, Latitude)) %>%
+  # calculating distance using 'earth.dist'  
+  mutate(distance = earth.dist(
+    Longitude_EMODnet, Latitude_EMODnet, 
+    Longitude_ICES, Latitude_ICES)
+  )
+
+# debugonce(check_one_pair_by_stationname)
+# test <- check_one_pair_by_stationname(stations_dupl_sel[1], dat_test)
+
+```
+
+
+
+
+#### - positions  
+```{r}
+
+dat_test_pos <- dat_test %>%
+  group_by(id, Dataset) %>%
+  summarise(across(c(Longitude, Latitude), first), .groups = "drop")
+
+```
+
+
+#### - test  
+```{r}
+
+if (FALSE){
+  
+  debugonce(check_pair_by_stationname)
+  debugonce(check_pair)
+  debugonce(check_pair_matrix_param_year)
+  test <- check_pair_by_stationname("Aber Benoît", data = dat_test)
+  
+}
+
+```
+
+#### - make 'df_check_all'   
+This takes some minutes  
+```{r}
+
+# stations_dupl <- stations_dupl[1:5]
+
+df_check_all_filename <- "Data/03_df_check_all_1a.rds"
+
+# If we want to perform analysis anyway, set to TRUE:
+recompute_df_check_all <- FALSE
+
+#
+# Perform analysis only if there is no saved result 
+#   (or 'recompute_df_check_all' = TRUE)
+#
+if (!file.exists(df_check_all_filename) | recompute_df_check_all){
+  
+  # Check cores
+  future::availableCores()
+  
+  # Set a "plan" for how the code should run.
+  plan(multisession, workers = 10)
+  
+  # 'safe' version of check_pair_by_stationname   
+  check_pair_by_stationname_s <- safely(check_pair_by_stationname)  
+  
+  # Run function (takes some minutes)
+  # Note: dataset 1 (val1 etc.) will always be EMODnet, dataet 2 = ICES 
+  t0 <- Sys.time()
+  check_all_list1 <- stations_dupl %>% 
+    future_map(
+      check_pair_by_stationname_s, 
+      data = dat_test,
+      logfile = "03_logfile_check_same_stationname.txt")
+  t1 <- Sys.time()
+  t1-t0   # 6 mins (19 parameters)
+  
+  # Transpose and keep only the ones that work
+  check_all_list2 <- transpose(check_all_list1) 
+  
+  # when the 'error' part is NULL, there is no error
+  is_ok <- check_all_list2$error %>% map_lgl(is.null)
+  message(100*mean(is_ok), " % of stations had no errors")
+  
+  # Filter list, keeping only those that are ok
+  check_all_list3 <- check_all_list2[is_ok]
+  
+  # Make final check table
+  df_check_all_1a <- check_all_list3$result %>% 
+    bind_rows()
+  
+  # Add coordinates plus distance
+  n1 <- nrow(df_check_all_1a)
+  df_check_all_1a <- df_check_all_1a %>%
+    left_join(dat_distance, by = "id")
+  n2 <- nrow(df_check_all_1a)
+  if (n2 > n1) stop("Number of rows increased")
+  
+  if (file.exists(df_check_all_filename)){
+    
+    # Save backup
+    timestamp <- Sys.time() %>% gsub(" ", "_", .) %>% gsub(":", "-", .)
+    new_filename <- paste0(
+      sub(".rds", "", df_check_all_filename, fixed = TRUE),
+      "_", timestamp, ".rds"
+    )
+    file.copy(df_check_all_filename, new_filename)
+    
+  }
+  
+  # SAVE
+  saveRDS(df_check_all_1a, file = df_check_all_filename)
+  
+} else {
+  
+  df_check_all_1a <- readRDS(df_check_all_filename)
+  
+}
+
+```
+
+#### - check the ones with more EMODnet than OSPAR data   
+- very few instances of this after 2010, and only in two stations: LIM-3728-3 and STR 0102065   
+```{r}
+
+if (FALSE) {
+  
+df_check_all_1a %>% 
+  xtabs(~n1 + n2, .)
+
+df_check_all_1a %>%
+  filter(n2 >= 1 & n1 > n2) %>%
+  xtabs(~id + n2, .)  
+
+df_check_all_1a %>%
+  filter(n2 >= 1 & n1 > n2 & year > 2010) %>% View()
+
+}
+
+
+df_check_all_1a %>%
+  filter(n2 >= 1 & n1 > n2) %>%
+  xtabs(~year, .)  
+
+df_check_all_1a %>%
+  filter(n2 >= 1 & n1 > n2 & year > 2010) %>% 
+  xtabs(~id + year, .)  
+
+
+```
+
+## 7b. Filter by temporal coverage   
+
+### Filtering     
+
+- For levels, we need 3 years in the period 2010-2020          
+- For 10-year trends, we need at least 5 years in the period 2005-2020 and last year >= 2015    
+
+```{r}
+
+df_check_all_1a <- df_check_all_1a %>%
+  group_by(id, distance) %>%
+  mutate(n_year = length(unique(year)),
+         n_year_2010.20 = length(unique(year[year >= 2010 & year <= 2020])),
+         n_year_2005.20 = length(unique(year[year >= 2005 & year <= 2020])),
+         last_year = max(year),
+         levels_ok = n_year_2010.20 >= 3,
+         trend10yr_ok = n_year_2005.20 >= 5 & last_year >= 2015) %>%
+  ungroup()
+
+df_check_all_1b <- df_check_all_1a %>%
+  filter(levels_ok | trend10yr_ok)
+
+cat("df_check_all_1a, no of stations:", length(unique(df_check_all_1a$id)), "\n")
+cat("df_check_all_1b, no of stations:", length(unique(df_check_all_1b$id)), "\n")
+
+if (FALSE){
+  
+  df_check_all_1a %>% filter(id == "MGAVSA") %>% xtabs(~n1 + n2, .)
+  df_check_all_1b %>% filter(id == "MGAVSA") %>% xtabs(~n1 + n2, .)
+  
+}
+
+```
+
+
+### Check longest distances   
+ 
+#### - manual check    
+- dist_longest is also sorted  
+```{r, fig.width=11, fig.height = 6}
+
+dist_longest <- df_check_all_1b %>%
+  distinct(id, distance, n_year, last_year, n_year_2010.20, param) %>%
+  count(id, distance, n_year, last_year, n_year_2010.20, ) %>%
+  arrange(desc(distance)) %>%
+  as.data.frame() 
+
+check_plot <- function(station_number, param_sel = NULL){
+  gg <- plot_pair_by_stationname(
+    dist_longest$id[station_number], 
+    checkdata = df_check_all_1b,
+    param_sel = param_sel)    # MGAVSA
+  gg <- gg + labs(subtitle = paste("Distance", dist_longest$distance[station_number]))
+  print(gg)
+}
+
+
+dist_longest$id[1]
+# debugonce(plot_pair_by_stationname)
+check_plot(1)
+check_plot(1, c("HG", "DDEPP", "HCB", "HCHG"))
+check_plot(1, "DDEPP")
+check_plot(2)
+check_plot(2, "CB118")
+
+# dist_longest 1 and 3 - Keep ICES only for these: 
+# "MGAVSA"	Mytilus edulis
+# "KBKLYN"	Mytilus edulis
+
+# The rest (2,4,5,6, etc.) seems OK
+# debugonce(plot_pair_by_stationname)
+
+if (FALSE){
+  i <- 1
+  df_check_all_1b %>% filter(
+    id %in% dist_longest$id[i] & param %in% "DDEPP") %>% View(dist_longest$id[i])
+  i <- 2
+  df_check_all_1b %>% filter(
+    id %in% dist_longest$id[i] & param %in% "CB118") %>% View(dist_longest$id[i])
+}
+
+```
+
+#### - create 'df_check_all2'  
+- Filtered by dist_longest (takes care of amount of data since 2011)  
+- Plus two extra stations that are removed 
+```{r}
+
+# Exclude these (see previous chunk):
+# "MGAVSA"	Mytilus edulis (ICES) + M. galloprovincialis (EMODnet)
+# "KBKLYN"	Mytilus edulis
+# EMODnet part will be excluded from the main data (see 06)
+dist_longest_manually_filtered <- dist_longest %>%
+  filter(!id %in% c("MGAVSA", "KBKLYN"))
+
+df_check_all2 <- df_check_all_1b %>%
+  left_join(
+    dist_longest_manually_filtered %>% 
+      select(id, n_year, last_year) %>%
+      rename(station_n_year = n_year, station_last_year = last_year),
+    by = c("id")
+  ) %>%
+  filter(!is.na(station_n_year))
+  
+cat("No of rows, df_check_all_1b:", nrow(df_check_all_1b), "\n")  
+cat("No of rows, df_check_all2:", nrow(df_check_all2), "\n")  
+
+```
+## 7c. Create data  
+
+### Create data from duplicated series   
+- Variable names the same as in chunk 'Medians' in script 04  
+```{r}
+
+df_data_from_dupl <- df_check_all2 %>% 
+  mutate(
+    Dataset_pick = case_when(
+      !is.na(val2_as) ~ "ICES",
+      is.na(val1_as) ~ as.character(NA),
+      val1_as > 0 ~ "EMODnet"),
+    Value = case_when(
+      Dataset_pick %in% "ICES" ~ val2_as,
+      Dataset_pick %in% "EMODnet" ~ val1_as),
+    Flag = case_when(
+      Dataset_pick %in% "ICES" & u_loq2/n2 >= 0.5 ~ "<",
+      Dataset_pick %in% "ICES" & u_loq2/n2 < 0.5 ~ as.character(NA),
+      Dataset_pick %in% "EMODnet" & u_loq1/n1 >= 0.5 ~ "<",
+      Dataset_pick %in% "EMODnet" & u_loq1/n1 < 0.5 ~ as.character(NA))
+  ) %>%
+  select(id, species, param, year, Dataset_pick, Value, Flag) %>%
+  filter(!is.na(Dataset_pick))
+
+cat("No of rows, df_data_from_dupl:", nrow(df_data_from_dupl), "\n")   
+
+```
+
+
+### Save data from duplicates   
+
+- These are already medians and can be used directly in dat_04  
+
+```{r}
+
+if (FALSE){
+  
+  #
+  # Check if the resulting data is identical to previous data
+  #
+  df_data_from_dupl_saved <- readRDS("Data/03_df_data_from_dupl.rds")
+  nrow(df_data_from_dupl_saved)
+  nrow(df_data_from_dupl)
+  ncol(df_data_from_dupl_saved)
+  ncol(df_data_from_dupl)
+  
+  for (i in 1:ncol(df_data_from_dupl)){
+    identical(df_data_from_dupl[[i]], df_data_from_dupl_saved[[i]]) %>% print()
+  }
+  
+}
+
+if (TRUE){
+  saveRDS(df_data_from_dupl, "Data/03_df_data_from_dupl.rds")
+}
+
+```
+
+
+## 8. APPENDIX Duplicate check, name missing  
+- We would do this for Finland only   
+- But it turnds out there are almost no Finnish data left 
+```{r}
+
+dat_a %>% filter(Country == "Finland") %>% pull(LatLong) %>% unique() %>% length()
+
+#
+# Only 4 Macoma balthica stations    
+#
+# Macoma balthica = Baltic clam or Baltic tellin, a small saltwater clam  
+# Saduria entomon = benthic isopod crustacean
+#
+dat_a %>% 
+  filter(Country == "Finland") %>% 
+  distinct(SD_StationName, LatLong, WoRMS_scientificName, BASIS) %>%
+  xtabs(~WoRMS_scientificName + BASIS, .)
+
+# ...only very old data (until 1987) for this species     
+dat_a %>% 
+  filter(Country == "Finland" & WoRMS_scientificName == "Macoma balthica") %>% 
+  distinct(Country, LatLong, WoRMS_scientificName, BASIS, Dataset, Year) %>%
+  xtabs(~Year + BASIS + Dataset, .)
+
+# One station in Lithuania with newer ICES data  
+# Wet weight, dry weight fo rthe last years    
+df_macoma <- dat_a %>% 
+  filter(WoRMS_scientificName == "Macoma balthica" & Year >= 2010)
+df_macoma %>%
+  mutate(has_drywt = !is.na(DRYWT)) %>%
+  distinct(Country, LatLong, WoRMS_scientificName, BASIS, Dataset, Year, has_drywt) %>%
+  xtabs(~Year + has_drywt + BASIS + Dataset + Country, .)
+mean(df_macoma$DRYWT, na.rm = TRUE)
+# 19.96 %
+
+if (FALSE){
+  dat_a %>% 
+    distinct(Country, LatLong, WoRMS_scientificName, BASIS, Dataset, Year) %>%
+    filter(WoRMS_scientificName == "Macoma balthica" & Year >= 2000) %>%
+    xtabs(~Year + BASIS + Dataset, .)
+}
+
+
+
+```
+
+```{r}
+
+if (FALSE){
+
+df1_a <- dat_7 %>%
+  filter(Country == "Finland") %>%
+  mutate(Country = paste0(Country, "_", substr(Dataset, 1, 4))) %>%
+  distinct(LatLong, Latitude, Longitude, Country, Dataset, Year)
+
+# Unique for each position/dataset (years combined)
+df2_a <- df1_a %>%
+  distinct(LatLong, Latitude, Longitude, Country, Dataset) %>%
+  arrange(LatLong, Latitude, Longitude)
+
+df2_a_dist <- earth.dist.pairwise(df2_a, var_id = "LatLong") %>%
+  arrange(dist) %>%
+  # Add Dataset1 and Dataset2 columns
+  left_join(df2_a %>% select(LatLong, Dataset) %>% rename(Dataset1 = Dataset),
+            by = c("id1" = "LatLong")) %>%
+  left_join(df2_a %>% select(LatLong, Dataset) %>% rename(Dataset2 = Dataset),
+            by = c("id2" = "LatLong"))  
+
+dist_limit <- 1
+message("Distances < ", dist_limit, " km: ", 
+        mean(df2_a_dist$dist < dist_limit, na.rm = TRUE)*100, " percent")
+
+}
+
+
+```
+
+## 9. More checking of df_check_all2 (no changes)  
+
+** This part was cut and saved separately as script 03extra  

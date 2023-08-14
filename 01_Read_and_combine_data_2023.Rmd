@@ -1,0 +1,917 @@
+---
+title: "01_Read_and_combine_data"
+author: "DHJ"
+date: "15 1 2021"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+
+## 1. Packages    
+```{r, message=FALSE, warning=FALSE, results='hide'}
+
+library(dplyr)
+library(purrr)
+library(lubridate)
+library(readr)
+library(stringr)    
+library(ggplot2)
+
+```
+
+## 2. Read data
+
+###  EMODnet data 
+```{r, cache = TRUE}
+
+# Files from Hans:  
+# dir("Input_data/Data_from_Hans/")
+
+# For checking data, read just 3 rows:
+# fn <- "Input_data/EMD and ICES DOME for MAR001 20230614/EMD_biota_2022.txt"
+# test <- read.delim(fn, colClasses = "character", nrows = 3)
+
+
+coltypes <- cols(
+  .default = col_character(),
+  MYEAR = col_integer(),
+  SD_StationCode = col_double(),
+  Samplingtime = col_date(format = ""),
+  Latitude = col_double(),
+  Longitude = col_double(),
+  DEPHU = col_double(),
+  DEPHL = col_double(),
+  SampleIdentifier = col_character(),
+  SubsampleIdentifier = col_character(),
+  WoRMS_AphiaID = col_character(),
+  WoRMS_accepted_AphiaID = col_character(),
+  SEXCO = col_character(),
+  Value = col_double(),
+  L20 = col_double(),
+  UNCRT = col_double(),
+  LMQNT = col_double(),
+  DETLI = col_double(),
+  DRYWT = col_double(),
+  FATWT = col_double(),
+  EXLIP = col_double(),
+  LIPIDWT = col_double(),
+  BotDepth = col_double()
+)
+
+# Original data set, duplicates filtered using 3 decimals for lon/lat
+fn <- "Input_data/EMD and ICES DOME for MAR001 20230614/EMD_biota_2022.txt"
+df1a <- readr::read_tsv(fn, col_types = coltypes)  %>%
+  mutate(Year = year(Samplingtime), 
+         Month = month(Samplingtime), 
+         .before = everything())
+
+# Alternative data set, duplicates filtered using 2 decimals for lon/lat
+fn <- "Input_data/EMD and ICES DOME for MAR001 20230614/EMD_biota_2022_2DECIMALS.txt"
+df1b <- readr::read_tsv(fn, col_types = coltypes) %>%
+  mutate(Year = year(Samplingtime),
+         Month = month(Samplingtime),
+         .before = everything())
+
+message("Equal number of columns: ", ncol(df1a) == ncol(df1b))
+message("Number of columns with different names: ", sum(names(df1a) != names(df1b)))
+
+nrow(df1a)
+
+```
+
+### ICES data
+
+```{r}
+
+# As EMODnet, only that L20 and botDepth 
+coltypes <- cols(
+  .default = col_character(),
+  MYEAR = col_integer(),
+  SD_StationCode = col_double(),
+  Samplingtime = col_date(format = ""),
+  Latitude = col_double(),
+  Longitude = col_double(),
+  DEPHU = col_double(),
+  DEPHL = col_double(),
+  SampleIdentifier = col_character(),
+  SubsampleIdentifier = col_character(),
+  WoRMS_AphiaID = col_character(),
+  WoRMS_accepted_AphiaID = col_character(),
+  SEXCO = col_character(),
+  Value = col_double(),
+  # L20 = col_double(),
+  UNCRT = col_double(),
+  LMQNT = col_double(),
+  DETLI = col_double(),
+  DRYWT = col_double(),
+  FATWT = col_double(),
+  EXLIP = col_double(),
+  LIPIDWT = col_double()
+  # BotDepth = col_double()
+)
+
+df2_orig <- readr::read_tsv("Input_data/EMD and ICES DOME for MAR001 20230614/ICES_DOME_biota_20230601_1.txt", col_types = coltypes) %>%
+  mutate(Year = year(Samplingtime), 
+         Month = month(Samplingtime), 
+         .before = everything())
+
+nrow(df2_orig)
+# 1539721
+
+```
+
+#### Check PFAS   
+
+* ICES only   
+    - Analysed ins script 21  
+    
+* Zero EMODnet data   
+
+```{r}
+
+cat("PFAS in EMODnet Chemistry (no of records): \n")
+df1a %>% filter(PARGROUP == "O-FL") %>% nrow()
+
+cat("\nPFAS in ICES (no of records): \n")
+df2_orig %>% filter(PARGROUP == "O-FL") %>% nrow()
+
+```
+
+## .
+## GOTTEN THIS FAR
+## .
+
+#### Check of Portuguese (PT) data  
+
+* No Portuguese data after 2009-2010  
+* The same is the case for ICES data downloaded from the OHAT page  
+
+```{r}
+
+cat("ICES:\n")
+df2_orig %>%
+  filter(Country == "Portugal") %>%
+  xtabs(~Year, .)
+
+cat("\n\nEmodnet (no of rows):\n")
+df1b %>%
+  filter(Country == "Portugal") %>%
+  nrow()
+
+if (FALSE){
+  
+  # Check ICES data downloaded from the OHAT page - same data 
+  
+  check <- readr::read_tsv("../MIME-dhj/OSPAR_MIME_2019/OSPAR_MIME_AMAP_Biota_contaminants_effects_20191010/OSPAR_MIME_AMAP_Biota_contaminants_effects_20191010_utf8.txt") 
+  
+  check %>%
+    filter(Country == "Portugal") %>%
+    xtabs(~MYEAR, .)
+
+ #  1983 1985 1990 2008 2009 2010 
+ #   331   86   84 1508  835  726 
+ 
+}
+
+```
+
+#### New PT data: Read  
+
+* Data received from Hans Jensen 22. June 2022    
+* See mail in 'Input_data/Data_from_Hans/ICES_DOME_biota_PT_update_20220620'  
+
+```{r, results='hold'}
+
+df2_orig_pt1 <- readr::read_tsv(
+  "Input_data/Data_from_Hans/ICES_DOME_biota_PT_update_20220620/ICES_DOME_biota_PT_20220620.txt", 
+  col_types = coltypes) %>%
+  mutate(Year = year(Samplingtime), 
+         Month = month(Samplingtime), 
+         .before = everything())
+
+
+cat("Check column names \n")
+nm1 <- names(df2_orig)
+nm2 <- names(df2_orig_pt1)
+length(nm1) == length(nm2)  # TRUE
+sum(nm1 != nm2)             # zero
+
+cat("---------------------\n")
+cat("nrow(df2_orig_pt1): \n")
+nrow(df2_orig_pt1)
+# 5723
+
+cat("---------------------\n")
+xtabs(~MYEAR, df2_orig_pt1)
+
+if (FALSE){
+  
+  # Parameters
+  xtabs(~PARAM, df2_orig_pt1)
+  
+  # Species
+  xtabs(~WoRMS_accepted_scientificName, df2_orig_pt1)
+  
+  # Ca 20% of the  data lack station:
+  xtabs(~is.na(SD_StationCode), df2_orig_pt1)
+  xtabs(~is.na(SD_StationName), df2_orig_pt1)
+  xtabs(~paste(Latitude, Longitude), df2_orig_pt1)
+  xtabs(~paste(Latitude, Longitude) + MYEAR, df2_orig_pt1)
+  
+  # Some stations are hard to know whther to separate:
+  # 41.74283 -8.87833          0    0    0    0    0    0    8    8    8   12   13   21   12   32
+  # 41.74283 -8.9              0    0    0    0    0    0    0    0    0    0    0   13    0    0
+  
+}
+
+```
+
+#### New PT data: Check positions of stations  
+
+* Ths part was done before I realized that there actually are stations for the data that we need   
+
+```{r}
+
+if (FALSE){
+  # Get species from final dataset
+  filename_medians <- "Data/04_dat_medians.rds"
+  dat_medians <- readRDS(filename_medians)
+  unique(dat_medians$WoRMS_scientificName) %>% dput()
+}
+
+species <- c("Mytilus edulis", "Mytilus galloprovincialis", "Mya arenaria", 
+"Macoma balthica", "Crassostrea gigas", "Ostrea edulis", "Cerastoderma edule")
+
+
+# For checking map
+df2_orig_pt_stations <- df2_orig_pt1 %>%
+  filter(WoRMS_scientificName %in% species & MYEAR >= 2005) %>%
+  mutate(Latlong = paste0(Latitude, "_", Longitude)) %>%
+  group_by(Latlong, Latitude, Longitude) %>%
+  summarize(
+    Species = paste(unique(WoRMS_accepted_scientificName), collapse = "; "),
+    Years = paste(unique(MYEAR), collapse = "; "),
+  ) %>%
+  mutate(
+    popuptext = paste0("Lat - long:", Latlong, "<br>",
+                       "Species: ", Species, "<br>",
+                       "Years: ", Years, "<br>")
+  )
+
+
+if (FALSE){
+
+
+  # Check map
+  library(leaflet)
+  leaflet() %>%
+    addTiles() %>%
+    addMarkers(lng = df2_orig_pt_stations$Longitude, 
+               lat = df2_orig_pt_stations$Latitude,
+               popup = df2_orig_pt_stations$popuptext
+               )
+
+  "41.75_-8.5", "41.16666667_-8.83333333", "40.75_-8.5",
+  "40.58333333_-8.66666667", 
+  ""
+  
+  # Check sttions with very similar latitudes
+  check1 <- data.frame(
+    expand.grid(df2_orig_pt_stations$Latitude, df2_orig_pt_stations$Latitude)
+  ) %>%
+    filter(Var1 != Var2) %>%
+    mutate(Diff = Var1 - Var2) %>%
+    arrange(abs(Diff))
+    
+  
+}
+
+
+
+``` 
+
+#### New PT data: Filter data, check stations  
+```{r}
+
+# After checking map
+
+df2_orig_pt2 <- df2_orig_pt1 %>%
+  filter(WoRMS_scientificName %in% species & MYEAR >= 2005)
+
+xtabs(~is.na(SD_StationCode), df2_orig_pt2)
+xtabs(~is.na(SD_StationName), df2_orig_pt2)
+
+df2_orig_pt2 %>%
+  count(SD_StationCode, SD_StationName, Latitude, Longitude) %>%
+  arrange(Latitude)
+
+df2_orig_pt3 <- df2_orig_pt2 %>%
+  add_count(SD_StationCode, SD_StationName, name = "n_per_station") %>%
+  filter(n_per_station >= 20)
+
+if (FALSE){
+  df2_orig_pt3 %>%
+  count(SD_StationCode, SD_StationName, Latitude, Longitude) %>%
+  arrange(Latitude)
+
+}
+```
+#### New PT data: The rest is done in part 6   
+
+#### Example of duplicate in ICES data
+```{r}
+
+check <- df2_orig %>%
+ filter(PARAM %in% c("HG") & Year %in% 2006) %>%
+  filter(SD_StationName == "FYN008361")
+
+View(check)
+
+check %>%
+  select(Originator, SD_StationName, Samplingtime, Latitude, Longitude, MATRX, PARAM, Value, MUNIT, 
+         SampleIdentifier, SubsampleIdentifier, measurementID)
+
+```
+
+#### Check measurementID    
+Checking that there is no variation in variables 
+```{r}
+
+if (FALSE){
+  
+  # the check is a bot slow
+  
+  # Get duplicated measurements (> 1 row per measurementID)
+  check1 <- df2_orig %>%
+    add_count(measurementID)  %>%
+    filter(n > 1)
+  # 157068 duplicated observations  
+  
+  xtabs(~PARAM, check1)
+  #    AS  HCEPX     HG 
+  # 33364   1474 122230
+
+  xtabs(~BASIS + PARAM, check1)
+  #        PARAM
+  # BASIS     AS  HCEPX     HG
+  #     D   8582      0  22046
+  #     L      0     22     60
+  #     W  24782   1452 100124
+  
+  xtabs(~MATRX + PARAM, check1)
+  # all sorts
+
+  # Count number of unique values for each duplicated measurement
+  check2 <- check1 %>%
+    ungroup() %>%
+    group_by(measurementID) %>%
+    summarize(
+      across(.fn = ~length(unique(.))) 
+    )
+  # n = 78534 = exactly half of check1
+  
+  apply(check2, 2, max)
+  
+  apply(check2, 2, max) %>% table()
+  
+}
+
+# Make identifier for duplicated measurements (30 sec)
+df2_orig <- df2_orig %>%
+  add_count(measurementID, name = "n_same_measurement")
+
+df2_undup <- df2_orig %>%
+  filter(n_same_measurement == 1)
+
+# xtabs(~BASIS + PARAM, df2_undup)
+# no AS, HCEPX or HG
+
+df2_dup <- df2_orig %>%
+  filter(n_same_measurement > 1) %>%
+  group_by(measurementID) %>%
+    summarize(
+      across(.fn = first) 
+    )
+
+df2 <- bind_rows(df2_undup, df2_dup)
+
+nrow(df2)
+# 1461187
+
+nrow(df2_orig) - nrow(df2)
+# 78534
+
+```
+
+
+
+
+## 3. Prepare combining data    
+See *script 90* for comparison of variables and parameters  
+- We find common variables (`vars_common`), including the new common variable 'UNIT_orig'  
+- We find common parameters (`pars_common`)  
+- We delete TBTIN records when TBSN+ is availiable
+
+### Common variables    
+Defines `vars_common_1`  
+```{r}
+
+vars1 <- names(df1a)
+vars2 <- names(df2)
+
+vars_common_1 <- vars1[(vars1 %in% vars2)]
+
+if (FALSE){
+  cat("Variables in both: \n")
+  vars_common_1
+}
+
+```
+
+### Common parameters   
+Defines `pars_common`  
+```{r}
+
+x1 <- unique(df1a$PARAM)
+x2 <- unique(df2$PARAM)  
+
+cat("Parameters in EMODnet but not in ICES: \n")
+x1[!(x1 %in% x2)]
+cat("\n")
+
+cat("Parameters in ICES but not in EMODnet: \n")
+x2[!(x2 %in% x1)]
+cat("\n")
+
+cat("Parameters in both: \n")
+pars_common <- x1[(x1 %in% x2)]
+pars_common
+
+```
+
+### TBTs - remove TBTIN when TBSN+ is availiable  
+```{r, results='hold'}
+
+create_check_tbts <- function(data){
+  data %>%
+    filter(grepl("^TB", PARAM)) %>%
+    count(Country, SD_StationName, Year, PARAM) %>%
+    tidyr::pivot_wider(names_from = "PARAM", values_from = "n", values_fill = 0) %>%
+    arrange(Country, SD_StationName, Year) %>%
+    mutate(Presence_TBT = case_when(
+      TBTIN == `TBSN+` ~ "Same n",
+      TBTIN == 0 ~ "TBSN+ only",
+      `TBSN+` == 0 ~ "TBTIN only",
+      TBTIN > `TBSN+` ~ "TBTIN n higher",
+      TBTIN < `TBSN+` ~ "TBTIN n lower"
+    ))
+}
+check_tbts_1a <- create_check_tbts(df1a)
+check_tbts_1b <- create_check_tbts(df1b)
+
+cat("----------------------------\n")
+cat("EMODnet (a): Which TBT is present? \n")
+xtabs(~Presence_TBT, check_tbts_1a)  
+cat("EMODnet (b): Which TBT is present? \n")
+xtabs(~Presence_TBT, check_tbts_1b)  
+# xtabs(~Country + Year, check_tbts_1 %>% filter(Presence_TBT == "Same n"))  
+
+
+check_tbts_2 <- df2 %>%
+  filter(grepl("^TB", PARAM)) %>%
+  count(Country, SD_StationName, Year, PARAM) %>%
+  tidyr::pivot_wider(names_from = "PARAM", values_from = "n", values_fill = 0) %>%
+  arrange(Country, SD_StationName, Year) %>%
+  mutate(Presence_TBT = case_when(
+    TBTIN == `TBSN+` ~ "Same n",
+    TBTIN == 0 ~ "TBSN+ only",
+    `TBSN+` == 0 ~ "TBTIN only",
+    TBTIN > `TBSN+` ~ "TBTIN n higher",
+    TBTIN < `TBSN+` ~ "TBTIN n lower"
+  ))
+
+cat("----------------------------\n")
+cat("ICES: Which TBT is present? \n")
+xtabs(~Presence_TBT, check_tbts_2)  
+
+cat("----------------------------\n")
+cat("ICES: When are both TBTs present? \n")
+xtabs(~Country + Year, check_tbts_2 %>% filter(Presence_TBT == "Same n"))  
+
+#
+# Remove TBTIN when TBSN+ is avaliable
+# Add check_tbts_1 (or check_tbts_2)
+# 
+cat("----------------------------\n")
+cat("Remove TBTIN when TBSN+ is avaliable (EMODnet a): \n")
+x <- df1a %>%
+  left_join(check_tbts_1a, by = c("Year", "Country", "SD_StationName")) %>%
+  pull(Presence_TBT)
+sel <- x == "Same n" & df1a$PARAM %in% "TBTIN"
+df1a <- df1a[!sel,]
+cat(sum(sel, na.rm = TRUE), "TBTIN records removed from EMODnet data (corresponding TBSN+ is available) \n")
+
+cat("----------------------------\n")
+cat("Remove TBTIN when TBSN+ is avaliable (EMODnet b): \n")
+x <- df1b %>%
+  left_join(check_tbts_1b, by = c("Year", "Country", "SD_StationName")) %>%
+  pull(Presence_TBT)
+sel <- x == "Same n" & df1b$PARAM %in% "TBTIN"
+df1b <- df1b[!sel,]
+cat(sum(sel, na.rm = TRUE), "TBTIN records removed from EMODnet data (corresponding TBSN+ is available) \n")
+
+x <- df2 %>%
+  left_join(check_tbts_2, by = c("Year", "Country", "SD_StationName")) %>%
+  pull(Presence_TBT)
+sel <- x == "Same n" & df2$PARAM %in% "TBTIN"
+df2 <- df2[!sel,]
+cat(sum(sel, na.rm = TRUE), "TBTIN records removed from ICES data (corresponding TBSN+ is available)")
+
+```
+
+
+
+### Units - make common variable     
+See script 90 for code and details  
+- EMODnet: `Units`, always "ug/kg" for concentrations    
+- ICES: `MUNIT`, mg/kg, ng/g, ng/kg, pg/g, pg/kg, ug/g, ug/kg, and 'ug Sn/kg' for some TBTIN   
+- We make the new variable UNIT for both
+```{r}
+
+df1a <- df1a %>%
+  mutate(UNIT_orig = Units)
+
+df1b <- df1b %>%
+  mutate(UNIT_orig = Units)
+
+df2 <- df2 %>%
+  mutate(UNIT_orig = MUNIT)
+
+# Add UNIT
+vars_common <- c(vars_common_1, "UNIT_orig")
+
+```
+
+
+## 4. Combining data   
+
+### Combining both versions      
+* One version per EMODnet dataset: 'dat_a' and 'dat_b'  
+* Including 'LatLong' variable, which will be used in the case of Finland    
+* We include only variables that are in both datasets, with the exception of PFAS  
+```{r}
+
+# Add PFAS to the parameters we  
+pars_select <- c(pars_common, "PFOS")
+
+dat_a <- bind_rows(
+  df1a[, vars_common] %>% filter(PARAM %in% pars_select) %>% mutate(Dataset = "EMODnet"),
+  df2[, vars_common] %>% filter(PARAM %in% pars_select) %>% mutate(Dataset = "ICES")) %>%
+  mutate(LatLong = paste0(Latitude, "_", Longitude)) %>%
+  rename(Value_orig = Value)
+
+dat_b <- bind_rows(
+  df1b[, vars_common] %>% filter(PARAM %in% pars_select) %>% mutate(Dataset = "EMODnet"),
+  df2[, vars_common] %>% filter(PARAM %in% pars_select) %>% mutate(Dataset = "ICES")
+) %>%
+  mutate(LatLong = paste0(Latitude, "_", Longitude)) %>%
+  rename(Value_orig = Value)
+
+xtabs(~Dataset, dat_a)
+xtabs(~Dataset, dat_b)
+
+```
+
+### Case conversion of country    
+We have both "SWEDEN" and "Sweden", for instance  
+```{r}
+
+dat_a <- dat_a %>%
+  mutate(Country = str_to_title(Country))
+
+dat_b <- dat_b %>%
+  mutate(Country = str_to_title(Country))
+
+cat("Countries (dat_a) \n")
+xtabs(~ Country, dat_a)
+
+```
+
+
+### Check species synonyms   
+* Use 
+* Note:  
+    - Magallana gigas is the correct name for Crassostrea gigas (pacific oyster)    
+    - Pusa hispida is the correct name for 'Phoca hispida' (ringed seal)   
+    - Tritia reticulata is the correct name for 'Nassarius reticulatus'  
+```{r}
+
+# checking dat_a only
+
+check_species <- dat_a %>% 
+  count(WoRMS_scientificName, WoRMS_accepted_scientificName) %>%
+  arrange(WoRMS_accepted_scientificName)
+
+check_species %>%
+  add_count(WoRMS_accepted_scientificName, name = "number_of_accepted_names") %>%
+  filter(number_of_accepted_names > 1)
+
+check_species %>%
+  filter(WoRMS_scientificName != WoRMS_accepted_scientificName)
+
+
+```
+
+
+## 5. Put data on common units  
+
+### A very few (21) TBTIN data have unit "gm/g"   
+- we delete these (donæt know what they mean)    
+```{r}
+
+#
+# dat_a
+#
+message("====================")  
+message("dat_a")  
+
+sel <- with(dat_a, PARAM %in% "TBTIN" & UNIT_orig == "gm/g") 
+# View(dat_a[sel,])
+xtabs(~Year + Country, dat_a[sel,])
+
+dat_a <- dat_a[!sel,]
+cat("\n", sum(sel), "records deleted (dat_a) \n")
+
+
+#
+# dat_b
+#
+
+message("====================")
+message("dat_b")
+
+sel <- with(dat_b, PARAM %in% "TBTIN" & UNIT_orig == "gm/g") 
+# View(dat_b[sel,])
+xtabs(~Year + Country, dat_b[sel,])
+
+dat_b <- dat_b[!sel,]
+cat("\n", sum(sel), "records deleted (dat_b) \n")
+
+
+```
+
+### Some (84) BAP values are given in unit 'umol/min/mg protein'    
+- French data for some years 2008-2012   
+- All stations/years also have data with BAP in 'ug/kg'  
+- Thus, these are probably metabolite data (BAPOH) with worng 'PAR' set
+```{r}
+
+if (FALSE){
+  # Example
+  dat %>%
+    filter(PARAM == "BAP" & SD_StationName == "Le Moulard" & Year >= 2007 & Year <= 2013) %>%
+    arrange(Year, UNIT_orig) %>%
+    select(Year, Samplingtime, PARAM, Value_orig, UNIT_orig) %>%
+    View("Le Moulard") 
+}
+
+#
+# dat_a
+#
+message("====================")
+message("dat_a")
+
+
+check1 <- dat_a %>%
+  filter(PARAM == "BAP" & Country == "France" & Year >= 2007 & Year <= 2013) %>%
+  count(SD_StationName, Year, UNIT_orig) %>% 
+  tidyr::pivot_wider(names_from = "UNIT_orig", values_from = "n", values_fill = 0) %>%
+  filter(`umol/min/mg protein` > 0)
+
+check2 <- check1 %>%
+  filter(`ug/kg` == 0) %>%
+  nrow()
+  
+cat("Number of stations/years with BAP in umol/min/mg protein and NOT in ug/kg:", check2, "\n\n")
+
+# Delete these
+sel <- with(dat_a, PARAM == "BAP" & UNIT_orig == "umol/min/mg protein")
+dat_a <- dat_a[!sel,]
+cat(sum(sel), "records deleted \n")
+
+# View(dat_a[sel,])
+
+#
+# dat_b
+#
+message("====================")
+message("dat_b")
+
+
+check1 <- dat_b %>%
+  filter(PARAM == "BAP" & Country == "France" & Year >= 2007 & Year <= 2013) %>%
+  count(SD_StationName, Year, UNIT_orig) %>% 
+  tidyr::pivot_wider(names_from = "UNIT_orig", values_from = "n", values_fill = 0) %>%
+  filter(`umol/min/mg protein` > 0)
+
+check2 <- check1 %>%
+  filter(`ug/kg` == 0) %>%
+  nrow()
+  
+cat("Number of stations/years with BAP in umol/min/mg protein and NOT in ug/kg:", check2, "\n\n")
+
+# Delete these
+sel <- with(dat_b, PARAM == "BAP" & UNIT_orig == "umol/min/mg protein")
+dat_b <- dat_b[!sel,]
+cat(sum(sel), "records deleted \n")
+
+
+```
+
+
+### Units for ordinary concentrations  
+```{r}
+dat_a %>% 
+  filter(!(PARAM %in% "LNMEA")) %>%
+  xtabs(~UNIT_orig, .)
+```
+
+### Units for metals   
+They are mostly in ug/kg too  
+```{r}
+
+pars_metal <- c("CU","ZN","PB","CD","HG")
+dat_a %>% 
+  filter(PARAM %in% pars_metal & Year %in% 2016:2019) %>%
+  xtabs(~UNIT_orig, .)
+
+```
+### We convert all concentrations to ug/kg    
+
+* Uses variables PARAM, UNIT_orig and Value_orig  
+* Adds variables UNIT and 'Value'  
+
+```{r, results='hold'}
+
+convert_units <- function(dat){
+  
+  # Select parameters
+  pars_selected <- dat %>% 
+    filter(!(PARAM %in% "LNMEA")) %>%
+    pull(PARAM) %>%
+    unique()
+  
+  dat$UNIT <- as.character(NA)
+  dat$Value <- as.double(NA)
+  
+  # ng/g (and 'ug Sn/kg' for some TBTIN) to ug/kg
+  sel <- with(dat, PARAM %in% pars_selected & UNIT_orig %in% c("ug/kg", "ng/g", "ug Sn/kg"))
+  dat$UNIT[sel] <- "ug/kg"
+  dat$Value[sel] <- dat$Value_orig[sel]
+  cat("ng/g (and 'ug Sn/kg' for some TBTIN) to ug/kg: ", sum(sel), "records changed\n")
+  cat("UNIT and Value set for", 100*mean(!is.na(dat$UNIT)), "percent of the records\n\n")
+  
+  # ng/kg and pg/g to ug/kg
+  sel <- with(dat, PARAM %in% pars_selected & UNIT_orig %in% c("ng/kg", "pg/g"))
+  dat$UNIT[sel] <- "ug/kg"
+  dat$Value[sel] <- dat$Value_orig[sel]/1000
+  cat("ng/kg and pg/g to ug/kg: ", sum(sel), "records changed\n")
+  cat("UNIT and Value set for", 100*mean(!is.na(dat$UNIT)), "percent of the records\n\n")
+  
+  # ug/g and mg/kg to ug/kg
+  sel <- with(dat, PARAM %in% pars_selected & UNIT_orig %in% c("ug/g","mg/kg"))
+  dat$UNIT[sel] <- "ug/kg"
+  dat$Value[sel] <- dat$Value_orig[sel]*1000
+  cat("ug/g and mg/kg to ug/kg: ", sum(sel), "records changed\n")
+  cat("UNIT and Value set for", 100*mean(!is.na(dat$UNIT)), "percent of the records\n\n")
+  
+  
+  # Check
+  cat("----------------------------\n")
+  cat("Final check: \n")
+  dat %>% 
+    filter(!PARAM %in% "LNMEA") %>%
+    xtabs(~addNA(UNIT) + UNIT_orig, .) %>%
+    print()
+  
+  dat
+  
+}
+
+message("====================================================")
+message("Convert units, dat_a")
+dat_a <- convert_units(dat_a)
+
+message("====================================================")
+message("Convert units, dat_b")
+dat_b <- convert_units(dat_b)
+
+
+```
+
+
+## 6. Save  
+```{r}
+
+saveRDS(dat_a, "Data/01_Combined_data_with_duplicates_a.rds")
+saveRDS(dat_b, "Data/01_Combined_data_with_duplicates_b.rds")
+
+# dat <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
+
+```
+
+
+## 7. Add PT data   
+
+### Filter by parameter, select variables    
+```{r}
+
+# Only for old (pre-PT) data
+dat_a <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
+
+# names(dat_a) %>% dput()
+
+pars_select <- c("FLE", "NAP", "CB180", "CB118", "CB138", "CB153", "CB28", "HCHG", 
+"BAA", "BAP", "ZN", "BKF", "DBAHA", "ACNE", "FLU", "ANT", "CU", 
+"ACNLE", "BGHIP", "PA", "CD", "CHR", "HG", "CB101", "CR", "DDTPP", 
+"NI", "TDEPP", "PB", "BBF", "ICDP", "CB52", "DDEPP", "CB105", 
+"PYR", "TBTIN", "CB156", "TBSN+", "BBJKF", "TPSN+", "HCB", "HCHB", 
+"CHRTR", "AS", "HCHA", "ALD", "LNMEA", "HCBD", "DIELD", "CB128", 
+"CB194", "CB170", "DBT", "CB183", "BDE47", "BD154", "BDE99", 
+"BD153", "BD100", "DEHP", "SCCP", "HCEPX", "ISOD", "END", "HEPC", 
+"ENDA", "QCB", "PFOS")
+
+vars_select <- c("Year", "Month", "MSFD_region", "Country", "MYEAR", "Originator", 
+"SD_StationCode", "SD_StationName", "Samplingtime", "Latitude", 
+"Longitude", "DEPHU", "DEPHL", "SampleIdentifier", "SubsampleIdentifier", 
+"WoRMS_scientificName", "WoRMS_AphiaID", "WoRMS_accepted_scientificName", 
+"WoRMS_accepted_AphiaID", "SEXCO", "PARAM", "PARGROUP", "MATRX", 
+"Value", "MUNIT", "BASIS", "QFLAG", "UNCRT", "METCU", "LMQNT", "DETLI", 
+"DRYWT", "DRYWT_MUNIT", "FATWT", "FATWT_MUNIT", "EXLIP", "EXLIP_MUNIT", 
+"LIPIDWT", "LIPIDWT_MUNIT", "measurementID", "sourcefileID", 
+"AccessRestriction")
+
+# "UNIT_orig", "Dataset", "LatLong", "UNIT", "Value"
+
+df2_orig_pt4 <- df2_orig_pt3[vars_select] %>%
+  filter(PARAM %in% pars_select) %>%
+  mutate(
+    UNIT_orig = MUNIT,
+    Dataset = "ICES",
+    LatLong = paste0(Latitude, "_", Longitude)) %>%
+  rename(Value_orig = Value)
+
+```
+
+
+### Units for ordinary concentrations  
+```{r}
+
+df2_orig_pt4 %>% 
+  filter(!(PARAM %in% "LNMEA")) %>%
+  xtabs(~UNIT_orig, .)
+
+```
+
+### Units for metals   
+Many in ug/kg too  
+```{r}
+
+pars_metal <- c("CU","ZN","PB","CD","HG")
+dat_a %>% 
+  filter(PARAM %in% pars_metal & Year %in% 2016:2019) %>%
+  xtabs(~UNIT_orig, .)
+
+```
+### Convert units  
+```{r}
+
+message("====================================================")
+message("Convert units, df2_orig_pt4")
+df2_orig_pt4 <- convert_units(df2_orig_pt4)
+
+```
+
+
+
+## 8. Combine and save  
+```{r}
+
+dat_a_with_pt <- bind_rows(dat_a, 
+                           df2_orig_pt4 %>% select(-MUNIT))
+
+n1 <- names(dat_a)
+n2 <- names(dat_a_with_pt)
+identical(n1, n2)
+
+saveRDS(dat_a_with_pt, 
+        "Data/01_Combined_data_with_duplicates_a_with_PT.rds")
+saveRDS(df2_orig_pt4 %>% select(-MUNIT), 
+        "Data/01_Data_PT.rds")
+
+# dat <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
+
+```
+

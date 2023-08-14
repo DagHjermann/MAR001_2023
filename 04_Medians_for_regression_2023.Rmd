@@ -1,0 +1,373 @@
+---
+title: "Calculate medians for regression"
+author: "DHJ"
+date: "24 10 2021"
+output: 
+  html_document:
+    keep_md: true  
+    toc: true  
+    toc_float: true
+---
+
+
+## 1. Packages    
+```{r, message=FALSE, warning=FALSE, results='hide'}
+
+library(dplyr)
+library(purrr)
+library(furrr)
+library(tidyr)
+library(ggplot2)
+library(ggeasy)
+library(lubridate)
+library(forcats)
+
+source("02_Fix_station_duplicates_functions.R")
+
+```
+
+## 2. Read data   
+
+### Main data  
+```{r}
+
+dat_1_all <- readRDS("Data/03_dat_7.rds")
+
+```
+
+### Filtering   
+- Removing EMODnet data for a couple of stations  
+- See script 03 part 7b 'Check long distances'    
+    -  MGAVSA" (Spain), 
+    Mytilus edulis (ICES) + M. galloprovincialis (EMODnet)
+    - "KBKLYN" (Denmark)
+    Mytilus edulis 
+```{r}
+
+dat_1 <- dat_1_all %>%
+  filter(!(id %in% c("MGAVSA", "KBKLYN") & Dataset %in% "EMODnet"))
+
+nrow(dat_1_all)
+nrow(dat_1)
+
+```
+
+
+### Duplication data set    
+- Created in script 03  
+```{r}
+
+dat_medians_from_duplicates <- readRDS("Data/03_df_data_from_dupl.rds")
+
+# df_duplicates <- readRDS(file = "Data/03_df_check_all.rds")
+
+```
+
+### Species-specific fat and dry weights  
+- From OSPAR (https://ocean.ices.dk/ohat/trDocuments/2021/help_ac_basis_conversion.html )
+```{r}
+
+df_bivalve_dryweight <- read.csv(textConnection("
+WoRMS_scientificName, Common_name, FATWT_species, DRYWT_species
+Cerastoderma edule,	common cockle, NA, 19.0 		
+Mya arenaria, softshell clam, 0.7, 14.8 		
+Ruditapes philippinarum, manila clam, NA, 16.0 		
+Mytilus edulis, blue mussel, 1.4, 16.3 		
+Mytilus galloprovincialis, Mediteranean mussel, 2.2, 19.0 		
+Crassostrea gigas, Pacific oyster, 2.1, 18.0 		
+Ostrea edulis, native oyster, 1.8, 20.4 	
+"), stringsAsFactors = FALSE)
+
+# Check
+tab <- table(dat_1$WoRMS_scientificName)
+cat(100*mean(df_bivalve_dryweight$WoRMS_scientificName %in% rownames(tab)), 
+    "% of names found in dat_1 \n")
+
+dat_1 %>%
+  filter(WoRMS_scientificName %in% df_bivalve_dryweight$WoRMS_scientificName) %>%
+  count(WoRMS_scientificName)
+
+tab[order(tab)] %>% rev() %>% head(30)
+
+```
+## 3. Medians for series that are only ICES or EMODnet       
+
+### Check dataset for stations       
+Table shows number of years per station and dataset  
+```{r, results='hold'}
+
+table(dat_1$Dataset)
+
+tab_a <- dat_1 %>%
+  mutate(Country = paste0(Country, "_", substr(Dataset, 1, 4))) %>%
+  distinct(id, Country, Dataset, Year) %>% # View()
+  
+  xtabs(~id + Dataset, .)  
+
+cat("Dataset with EMODnet data a \n\n")
+
+sel <- tab_a[,"EMODnet"] > 0 & tab_a[,"ICES"] == 0
+cat(sum(sel), "stations have data in EMODnet only (",  
+  100*round(mean(sel),3), "% )\n\n")  
+stations_emodnet <- rownames(tab_a[sel,])
+
+sel <- tab_a[,"EMODnet"] == 0 & tab_a[,"ICES"] > 0
+cat(sum(sel), "stations have data in ICES only (",  
+  100*round(mean(sel),3), "% )\n\n")  
+stations_ices <- rownames(tab_a[sel,])
+
+# "MGAVSA"	Mytilus edulis
+# "KBKLYN"	Mytilus edulis
+
+sel <- tab_a[,"EMODnet"] > 0 & tab_a[,"ICES"] > 0
+cat(sum(sel), "stations have data in both datasets (",
+  100*round(mean(sel),3), "% )\n\n")  
+stations_dupl <- rownames(tab_a[sel,])
+
+```
+
+### Basis   
+
+* Note: also sets 'Value_as' = assessment value (dry weight for metals, otherwise wet weight)
+
+```{r}
+
+metals <- c("ZN", "CU", "CD", "HG", "CR", "NI", "PB", "AS")
+
+dat_2 <- dat_1 %>%
+  
+  mutate(
+      Value_dw = case_when(
+        BASIS %in% "W" & DRYWT_MUNIT %in% "%" ~ Value/(DRYWT*0.01),
+        BASIS %in% "L" & DRYWT_MUNIT %in% "%" ~ (Value*FATWT_species*0.01)/(DRYWT*0.01),
+        BASIS %in% "D" ~ Value),
+      Value_ww = case_when(
+        BASIS %in% "W" ~ Value,
+        BASIS %in% "L" ~ Value*(FATWT_species*0.01),
+        BASIS %in% "D" & DRYWT_MUNIT %in% "%" ~ Value*(DRYWT*0.01)),
+      # Assessment value  
+      Value_as = case_when(
+        PARAM %in% metals ~ Value_dw,
+        !PARAM %in% metals ~ Value_ww)
+      )
+
+# dat_2 %>% filter(is.na(Value_dw)) %>% View
+xtabs(~is.na(Value_dw), dat_2)
+xtabs(~is.na(Value_ww), dat_2)
+xtabs(~is.na(Value_as), dat_2)
+
+
+if (FALSE)
+  dat_2 %>% 
+  select(Country, SD_StationCode, SD_StationName, MYEAR, PARAM, PARGROUP, MATRX, Value_orig, DRYWT, DRYWT_MUNIT, Value_dw, Value_ww, Value_as) %>% View("dat_2")
+
+# Calculate dry and wet-weight basis (but DRYWT often lacking in one of the pair)
+
+```
+
+### Add LOQ value   
+- per country/parameter/year (for ALL obs.)  
+```{r}
+
+dat_2_loqvalues <- dat_2 %>%
+  group_by(Country, PARAM, Year) %>%
+  summarise(
+    n_below_loq = sum(!is.na(QFLAG)),
+    LOQ_value_dw = case_when(
+      n_below_loq > 0 ~ median(Value_dw[!is.na(QFLAG)]),         
+      n_below_loq == 0 ~ as.double(NA)),
+    LOQ_value_ww = case_when(
+      n_below_loq > 0 ~ median(Value_ww[!is.na(QFLAG)]),         
+      n_below_loq == 0 ~ as.double(NA)),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    LOQ_value_as = case_when(
+      PARAM %in% metals ~ LOQ_value_dw,
+      !PARAM %in% metals ~ LOQ_value_ww)
+  ) %>%
+  select(-n_below_loq)
+
+
+```
+
+### Medians   
+
+* Note: 'Value' of median data is the 'Value_as' = assessment value (dry weight for metals)
+
+```{r}
+
+dat_medians_nodupl <- dat_2 %>%
+  filter(id %in% c(stations_emodnet, stations_ices)) %>%
+  group_by(
+    Country, MSFD_region, id, Dataset, WoRMS_scientificName, PARAM, Year, UNIT) %>%
+  summarise(
+    Value = median(Value_as),
+    n = n(),
+    Below_LOQ = sum(!is.na(QFLAG)),
+    Flag = ifelse(Below_LOQ/n > 0.5, "<", as.character(NA)),
+    .groups = "drop"
+  ) 
+
+```
+
+#### Check/demonstrate for HG data  
+```{r, results = 'hold'}
+cat("----------------------------------------------------------------------------  \n")
+cat("dat_1, ww basis compared with 20, dw basis compared with 129   \n")
+cat("----------------------------------------------------------------------------  \n")
+
+dat_1 %>%
+  filter(MYEAR >= 2010,
+         PARAM == "HG", 
+         Country %in% c("Germany", "Denmark", "Sweden", "Poland"),
+         BASIS == "W") %>%
+  xtabs(~(Value > 20) + Country + BASIS, .)
+
+dat_1 %>%
+  filter(MYEAR >= 2010,
+         PARAM == "HG", 
+         Country %in% c("Germany", "Denmark", "Sweden", "Poland"),
+         BASIS == "D") %>%
+  xtabs(~(Value > 129) + Country + BASIS, .)
+
+cat("----------------------------------------------------------------------------  \n")
+cat("dat_2, ww basis compared with 20, dw basis compared with 129   \n")
+cat("----------------------------------------------------------------------------  \n")
+
+dat_2 %>%
+  filter(MYEAR >= 2010,
+         PARAM == "HG", 
+         Country %in% c("Germany", "Denmark", "Sweden", "Poland")) %>%
+  xtabs(~(Value_ww > 20) + Country, .)
+
+dat_2 %>%
+  filter(MYEAR >= 2010,
+         PARAM == "HG", 
+         Country %in% c("Germany", "Denmark", "Sweden", "Poland")) %>%
+  xtabs(~(Value_dw > 129) + Country, .)
+
+cat("----------------------------------------------------------------------------  \n")
+cat("dat_medians_nodupl, Value (= dw basis for HG) compared with 129   \n")
+cat("----------------------------------------------------------------------------  \n")
+
+dat_medians_nodupl %>%
+  filter(Year >= 2010,
+         PARAM == "HG", 
+         Country %in% c("Germany", "Denmark", "Sweden", "Poland")) %>%
+  xtabs(~(Value > 129) + Country, .)
+
+
+```
+
+
+## 4. Combine with medians from series with both ICES and EMODnet
+
+### Add medians 
+
+```{r}
+
+dat_country <- dat_1 %>%
+  distinct(id, Country, MSFD_region)
+
+dat_medians <- bind_rows(
+  dat_medians_nodupl,
+  dat_medians_from_duplicates %>%
+    mutate(
+      Dataset = "Both",
+      UNIT = "ug/kg") %>%
+    rename(
+      WoRMS_scientificName = species, PARAM = param, Year = year) %>%
+    left_join(dat_country, by = "id")
+)
+
+# check
+# apply(!is.na(dat_medians_from_duplicates), 2, mean)
+apply(!is.na(dat_medians), 2, mean)
+
+```
+
+
+### Add LOQ values  
+```{r}
+
+n1 <- nrow(dat_medians)
+dat_medians <- dat_medians %>%
+  left_join(
+    dat_2_loqvalues,  by = c("Country", "PARAM", "Year")
+  )
+n2 <- nrow(dat_medians)
+
+if (n1 != n2)
+  stop("left_join changed row number")
+
+```
+
+## 5. Save  
+```{r}
+
+filename_medians <- "Data/04_dat_medians.rds"
+
+# Save backup
+timestamp <- Sys.time() %>% gsub(" ", "_", .) %>% gsub(":", "-", .)
+new_filename <- paste0(
+  sub(".rds", "", filename_medians, fixed = TRUE),
+  "_", timestamp, ".rds"
+)
+file.copy(filename_medians, new_filename)
+
+# Save
+saveRDS(dat_medians, filename_medians)
+
+# old
+# saveRDS(dat_medians_nodupl, "Data/05_dat_medians_nodupl")
+
+```
+
+
+
+## APPENDIX 
+
+### Time series per country    
+```{r}
+
+brks <- c(1,10,25,100,1000,10000)
+
+df_plot <- dat_medians %>%
+  distinct(
+    Country, id, Dataset, WoRMS_scientificName, Year, PARAM) %>%
+  count(
+    Country, Year) %>%
+  mutate(
+    n_cat = cut(n, breaks = brks)
+  ) 
+
+table(df_plot$n_cat)
+
+ggplot(df_plot, aes(Year, Country, fill = n_cat)) +
+  geom_tile() +
+  scale_fill_viridis_d(option = "plasma") +
+  labs(title = "")
+
+```
+
+
+### Checks  
+```{r}
+
+dat_medians_nodupl %>%
+  distinct(
+    Country, id, Dataset, WoRMS_scientificName, Year, PARAM) %>%
+  count(
+    Country, id, Dataset, WoRMS_scientificName, Year) %>%
+  ggplot(aes(Year, id, fill = n)) +
+  geom_tile()
+
+```
+
+
+
+
+
+
+
