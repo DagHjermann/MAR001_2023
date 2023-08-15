@@ -30,7 +30,7 @@ library(ggplot2)
 # dir("Input_data/Data_from_Hans/")
 
 # For checking data, read just 3 rows:
-# fn <- "Input_data/EMD and ICES DOME for MAR001 20230614/EMD_biota_2022.txt"
+# fn <- "Input_data/From_Hans_2023/EMD_biota_2022.txt"
 # test <- read.delim(fn, colClasses = "character", nrows = 3)
 
 
@@ -61,14 +61,14 @@ coltypes <- cols(
 )
 
 # Original data set, duplicates filtered using 3 decimals for lon/lat
-fn <- "Input_data/EMD and ICES DOME for MAR001 20230614/EMD_biota_2022.txt"
+fn <- "Input_data/From_Hans_2023/EMD_biota_2022.txt"
 df1a <- readr::read_tsv(fn, col_types = coltypes)  %>%
   mutate(Year = year(Samplingtime), 
          Month = month(Samplingtime), 
          .before = everything())
 
 # Alternative data set, duplicates filtered using 2 decimals for lon/lat
-fn <- "Input_data/EMD and ICES DOME for MAR001 20230614/EMD_biota_2022_2DECIMALS.txt"
+fn <- "Input_data/From_Hans_2023/EMD_biota_2022_2DECIMALS.txt"
 df1b <- readr::read_tsv(fn, col_types = coltypes) %>%
   mutate(Year = year(Samplingtime),
          Month = month(Samplingtime),
@@ -112,7 +112,7 @@ coltypes <- cols(
   # BotDepth = col_double()
 )
 
-df2_orig <- readr::read_tsv("Input_data/EMD and ICES DOME for MAR001 20230614/ICES_DOME_biota_20230601_1.txt", col_types = coltypes) %>%
+df2_orig <- readr::read_tsv("Input_data/From_Hans_2023/ICES_DOME_biota_20230601_1.txt", col_types = coltypes) %>%
   mutate(Year = year(Samplingtime), 
          Month = month(Samplingtime), 
          .before = everything())
@@ -139,13 +139,10 @@ df2_orig %>% filter(PARGROUP == "O-FL") %>% nrow()
 
 ```
 
-## .
-## GOTTEN THIS FAR
-## .
-
 #### Check of Portuguese (PT) data  
 
-* No Portuguese data after 2009-2010  
+* 2022: No Portuguese data after 2009-2010  
+* 2023: Portuguese data have now been added  
 * The same is the case for ICES data downloaded from the OHAT page  
 
 ```{r}
@@ -177,148 +174,36 @@ if (FALSE){
 
 ```
 
-#### New PT data: Read  
-
-* Data received from Hans Jensen 22. June 2022    
-* See mail in 'Input_data/Data_from_Hans/ICES_DOME_biota_PT_update_20220620'  
-
-```{r, results='hold'}
-
-df2_orig_pt1 <- readr::read_tsv(
-  "Input_data/Data_from_Hans/ICES_DOME_biota_PT_update_20220620/ICES_DOME_biota_PT_20220620.txt", 
-  col_types = coltypes) %>%
-  mutate(Year = year(Samplingtime), 
-         Month = month(Samplingtime), 
-         .before = everything())
-
-
-cat("Check column names \n")
-nm1 <- names(df2_orig)
-nm2 <- names(df2_orig_pt1)
-length(nm1) == length(nm2)  # TRUE
-sum(nm1 != nm2)             # zero
-
-cat("---------------------\n")
-cat("nrow(df2_orig_pt1): \n")
-nrow(df2_orig_pt1)
-# 5723
-
-cat("---------------------\n")
-xtabs(~MYEAR, df2_orig_pt1)
-
-if (FALSE){
-  
-  # Parameters
-  xtabs(~PARAM, df2_orig_pt1)
-  
-  # Species
-  xtabs(~WoRMS_accepted_scientificName, df2_orig_pt1)
-  
-  # Ca 20% of the  data lack station:
-  xtabs(~is.na(SD_StationCode), df2_orig_pt1)
-  xtabs(~is.na(SD_StationName), df2_orig_pt1)
-  xtabs(~paste(Latitude, Longitude), df2_orig_pt1)
-  xtabs(~paste(Latitude, Longitude) + MYEAR, df2_orig_pt1)
-  
-  # Some stations are hard to know whther to separate:
-  # 41.74283 -8.87833          0    0    0    0    0    0    8    8    8   12   13   21   12   32
-  # 41.74283 -8.9              0    0    0    0    0    0    0    0    0    0    0   13    0    0
-  
-}
-
-```
-
-#### New PT data: Check positions of stations  
-
-* Ths part was done before I realized that there actually are stations for the data that we need   
+#### Check Portuguese stations added as a separate file last year  
 
 ```{r}
 
-if (FALSE){
-  # Get species from final dataset
-  filename_medians <- "Data/04_dat_medians.rds"
-  dat_medians <- readRDS(filename_medians)
-  unique(dat_medians$WoRMS_scientificName) %>% dput()
-}
-
-species <- c("Mytilus edulis", "Mytilus galloprovincialis", "Mya arenaria", 
-"Macoma balthica", "Crassostrea gigas", "Ostrea edulis", "Cerastoderma edule")
+sts <- c("Praia do Cabo do Mundo", "Praia do Zavial", "Praia da Barra", 
+         "Praia da Baleeira", "Vila Real de Santo António", "Praia Zambujeira do Mar",
+         "Praia de Buarcos", "Praia de São Lourenço", "Praia do Norte",
+         "Praia de Moledo", "Porto de Pescas Sines", "Carreço", "Aljezur",
+         "Leirosa", "Caparica")
 
 
-# For checking map
-df2_orig_pt_stations <- df2_orig_pt1 %>%
-  filter(WoRMS_scientificName %in% species & MYEAR >= 2005) %>%
-  mutate(Latlong = paste0(Latitude, "_", Longitude)) %>%
-  group_by(Latlong, Latitude, Longitude) %>%
-  summarize(
-    Species = paste(unique(WoRMS_accepted_scientificName), collapse = "; "),
-    Years = paste(unique(MYEAR), collapse = "; "),
-  ) %>%
-  mutate(
-    popuptext = paste0("Lat - long:", Latlong, "<br>",
-                       "Species: ", Species, "<br>",
-                       "Years: ", Years, "<br>")
-  )
+param <- "ACNE"
+cat("\n===================\n", param, "\n===================\n")
+df2_orig %>%
+  filter(SD_StationName %in% sts & PARAM == param) %>%
+  xtabs(~SD_StationName + MYEAR, .)
+
+# Same result
+# df2_orig %>%
+#   filter(Country == "Portugal" & PARAM == param) %>%
+#   xtabs(~SD_StationName + MYEAR, .)
+
+param <- "HG"
+cat("\n===================\n", param, "\n===================\n")
+df2_orig %>%
+  filter(SD_StationName %in% sts & PARAM == param) %>%
+  xtabs(~SD_StationName + MYEAR, .)
 
 
-if (FALSE){
-
-
-  # Check map
-  library(leaflet)
-  leaflet() %>%
-    addTiles() %>%
-    addMarkers(lng = df2_orig_pt_stations$Longitude, 
-               lat = df2_orig_pt_stations$Latitude,
-               popup = df2_orig_pt_stations$popuptext
-               )
-
-  "41.75_-8.5", "41.16666667_-8.83333333", "40.75_-8.5",
-  "40.58333333_-8.66666667", 
-  ""
-  
-  # Check sttions with very similar latitudes
-  check1 <- data.frame(
-    expand.grid(df2_orig_pt_stations$Latitude, df2_orig_pt_stations$Latitude)
-  ) %>%
-    filter(Var1 != Var2) %>%
-    mutate(Diff = Var1 - Var2) %>%
-    arrange(abs(Diff))
-    
-  
-}
-
-
-
-``` 
-
-#### New PT data: Filter data, check stations  
-```{r}
-
-# After checking map
-
-df2_orig_pt2 <- df2_orig_pt1 %>%
-  filter(WoRMS_scientificName %in% species & MYEAR >= 2005)
-
-xtabs(~is.na(SD_StationCode), df2_orig_pt2)
-xtabs(~is.na(SD_StationName), df2_orig_pt2)
-
-df2_orig_pt2 %>%
-  count(SD_StationCode, SD_StationName, Latitude, Longitude) %>%
-  arrange(Latitude)
-
-df2_orig_pt3 <- df2_orig_pt2 %>%
-  add_count(SD_StationCode, SD_StationName, name = "n_per_station") %>%
-  filter(n_per_station >= 20)
-
-if (FALSE){
-  df2_orig_pt3 %>%
-  count(SD_StationCode, SD_StationName, Latitude, Longitude) %>%
-  arrange(Latitude)
-
-}
 ```
-#### New PT data: The rest is done in part 6   
 
 #### Example of duplicate in ICES data
 ```{r}
@@ -327,7 +212,8 @@ check <- df2_orig %>%
  filter(PARAM %in% c("HG") & Year %in% 2006) %>%
   filter(SD_StationName == "FYN008361")
 
-View(check)
+# If you wish, run next line in the console window: ⬇ 
+# View(check)
 
 check %>%
   select(Originator, SD_StationName, Samplingtime, Latitude, Longitude, MATRX, PARAM, Value, MUNIT, 
@@ -823,95 +709,4 @@ saveRDS(dat_b, "Data/01_Combined_data_with_duplicates_b.rds")
 ```
 
 
-## 7. Add PT data   
-
-### Filter by parameter, select variables    
-```{r}
-
-# Only for old (pre-PT) data
-dat_a <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
-
-# names(dat_a) %>% dput()
-
-pars_select <- c("FLE", "NAP", "CB180", "CB118", "CB138", "CB153", "CB28", "HCHG", 
-"BAA", "BAP", "ZN", "BKF", "DBAHA", "ACNE", "FLU", "ANT", "CU", 
-"ACNLE", "BGHIP", "PA", "CD", "CHR", "HG", "CB101", "CR", "DDTPP", 
-"NI", "TDEPP", "PB", "BBF", "ICDP", "CB52", "DDEPP", "CB105", 
-"PYR", "TBTIN", "CB156", "TBSN+", "BBJKF", "TPSN+", "HCB", "HCHB", 
-"CHRTR", "AS", "HCHA", "ALD", "LNMEA", "HCBD", "DIELD", "CB128", 
-"CB194", "CB170", "DBT", "CB183", "BDE47", "BD154", "BDE99", 
-"BD153", "BD100", "DEHP", "SCCP", "HCEPX", "ISOD", "END", "HEPC", 
-"ENDA", "QCB", "PFOS")
-
-vars_select <- c("Year", "Month", "MSFD_region", "Country", "MYEAR", "Originator", 
-"SD_StationCode", "SD_StationName", "Samplingtime", "Latitude", 
-"Longitude", "DEPHU", "DEPHL", "SampleIdentifier", "SubsampleIdentifier", 
-"WoRMS_scientificName", "WoRMS_AphiaID", "WoRMS_accepted_scientificName", 
-"WoRMS_accepted_AphiaID", "SEXCO", "PARAM", "PARGROUP", "MATRX", 
-"Value", "MUNIT", "BASIS", "QFLAG", "UNCRT", "METCU", "LMQNT", "DETLI", 
-"DRYWT", "DRYWT_MUNIT", "FATWT", "FATWT_MUNIT", "EXLIP", "EXLIP_MUNIT", 
-"LIPIDWT", "LIPIDWT_MUNIT", "measurementID", "sourcefileID", 
-"AccessRestriction")
-
-# "UNIT_orig", "Dataset", "LatLong", "UNIT", "Value"
-
-df2_orig_pt4 <- df2_orig_pt3[vars_select] %>%
-  filter(PARAM %in% pars_select) %>%
-  mutate(
-    UNIT_orig = MUNIT,
-    Dataset = "ICES",
-    LatLong = paste0(Latitude, "_", Longitude)) %>%
-  rename(Value_orig = Value)
-
-```
-
-
-### Units for ordinary concentrations  
-```{r}
-
-df2_orig_pt4 %>% 
-  filter(!(PARAM %in% "LNMEA")) %>%
-  xtabs(~UNIT_orig, .)
-
-```
-
-### Units for metals   
-Many in ug/kg too  
-```{r}
-
-pars_metal <- c("CU","ZN","PB","CD","HG")
-dat_a %>% 
-  filter(PARAM %in% pars_metal & Year %in% 2016:2019) %>%
-  xtabs(~UNIT_orig, .)
-
-```
-### Convert units  
-```{r}
-
-message("====================================================")
-message("Convert units, df2_orig_pt4")
-df2_orig_pt4 <- convert_units(df2_orig_pt4)
-
-```
-
-
-
-## 8. Combine and save  
-```{r}
-
-dat_a_with_pt <- bind_rows(dat_a, 
-                           df2_orig_pt4 %>% select(-MUNIT))
-
-n1 <- names(dat_a)
-n2 <- names(dat_a_with_pt)
-identical(n1, n2)
-
-saveRDS(dat_a_with_pt, 
-        "Data/01_Combined_data_with_duplicates_a_with_PT.rds")
-saveRDS(df2_orig_pt4 %>% select(-MUNIT), 
-        "Data/01_Data_PT.rds")
-
-# dat <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
-
-```
 

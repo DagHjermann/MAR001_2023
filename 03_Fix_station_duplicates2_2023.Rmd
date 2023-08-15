@@ -14,7 +14,7 @@ output:
 * Finland not done yet (no values for SD_StationName, needs to rely on coordinates)  
 
 ```{r}
-
+script 01: 
 knitr::opts_chunk$set(results = "hold")  
 
 ```
@@ -39,11 +39,9 @@ source("02_Fix_station_duplicates_functions.R")
 ## 2. Read data  
 ```{r}
 
-dat_a_old <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
-dat_a <- readRDS("Data/01_Combined_data_with_duplicates_a_with_PT.rds")
+dat_a <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
 
 cat("nrow(dat_a): ", nrow(dat_a), "\n")
-cat("nrow difference: ", nrow(dat_a) - nrow(dat_a_old), "\n")
 
 # dat_b <- readRDS("Data/01_Combined_data_with_duplicates_b.rds")
 
@@ -866,7 +864,7 @@ cat("nrow(dat_7): ", nrow(dat_7), "\n")
 
 ### Save dat_7    
 
-* These are the main datan used onwards in script 04 
+* These are the main data used onwards in script 04 
 - Note: we do *not* filter by temporal coverage at this point, as ICES + EMODnet time series must by joined first   
 
 ```{r}
@@ -1180,6 +1178,7 @@ cat("No of rows, df_check_all_1b:", nrow(df_check_all_1b), "\n")
 cat("No of rows, df_check_all2:", nrow(df_check_all2), "\n")  
 
 ```
+
 ## 7c. Create data  
 
 ### Create data from duplicated series   

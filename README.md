@@ -1,6 +1,10 @@
 # MAR001_2023
 
-Scripts for analysis of levels and trends of marine contaminants at the European level for ETC, 2023 
+Scripts for analysis of levels and trends of marine contaminants at the European level for ETC, 2023  
+  
+Note: the scripts are based on the 2021 version  
+- 
+  
 
 ## Script overview    
 
@@ -11,6 +15,10 @@ Scripts for analysis of levels and trends of marine contaminants at the European
     - 07 - based on data from 04, perform status classification    
     - 05 - based on data from 04 and 07, perform time series analysis  
     - 06 - based on results from 05 and 07, make output tables and graphs  
+    
+* Major changes from the 2021 scripts:  
+    - script 01: There should now be Portuguese data after 2010 -> Script just check that there are PT data after 2010  
+    - script 03: TO DO  
 
 ## Scripts, details      
 
