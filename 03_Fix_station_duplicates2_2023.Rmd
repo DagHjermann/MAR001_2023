@@ -14,7 +14,7 @@ output:
 * Finland not done yet (no values for SD_StationName, needs to rely on coordinates)  
 
 ```{r}
-script 01: 
+
 knitr::opts_chunk$set(results = "hold")  
 
 ```
