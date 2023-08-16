@@ -71,7 +71,7 @@ cat("Regressions updated: \n")
 print(file.info(fn)[1, "mtime"])
 
 ### Threshold values   
-df_thresholds <- readxl::read_excel("Input_data/MGR_05_df_thresholds.xlsx", sheet = "MGR")
+df_thresholds <- readxl::read_excel("Thresholds/MGR_05_df_thresholds.xlsx", sheet = "MGR")
 
 
 ```
