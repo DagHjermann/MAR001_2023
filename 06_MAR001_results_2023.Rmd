@@ -1,0 +1,1421 @@
+---
+title: "Results from MAR001, 2021"
+author: "DHJ"
+date: "29 10 2021"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+---
+
+
+```{r, echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+
+library(dplyr)
+library(purrr)
+library(furrr)       # future_map
+library(collateral)  # map_peacefully
+library(tidyr)
+library(ggplot2)
+library(ggeasy)
+library(janitor)     # tabyl + adorn_...
+library(knitr)       # kable
+library(kableExtra)  # kable_classic
+# library(lubridate)
+library(forcats)
+library(broom)       # tidy
+library(R2jags)      # (in 'lm_leftcensored') 
+library(glue)        # glue (in 'lm_leftcensored')  
+
+# source("02_Fix_station_duplicates_functions.R")
+# source("05_Time_trend_regression_functions.R")
+source("06_MAR001_results_2021_functions.R")
+
+library(maps)   
+
+knitr::opts_chunk$set(results = 'hold', echo = FALSE) 
+# results = 'hold': collect the results from a chunk, print them together after the entire chunk  
+# echo = FALSE: don't print code  
+
+
+```
+
+
+```{r data, echo=FALSE, results='hold'}
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
+# Simple categorical trend + status (main data)
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
+
+fn <- "Data/07_dat_status_trend.rds"
+dat_status_trend <- readRDS(fn)
+
+# Delete one PCB118 outlier
+dat_status_trend <- dat_status_trend %>%
+  filter(!(id %in% "56.02833333_20.83333333" & PARAM %in% "CB118"))
+# nrow(dat_status_trend)
+
+cat("File modified at: \n")
+file.info(fn)$mtime
+
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
+# Trend including slope, will be used for meta-analysis
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
+
+dat_series_trend <- readRDS("Data/05_dat_series_trend.rds")
+
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
+# Threshold values   
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
+
+df_thresholds <- readxl::read_excel("Input_data/MGR_05_df_thresholds.xlsx", sheet = "MGR")
+
+if (FALSE){
+  
+  # for app
+  file.copy("Data/05_dat_status_trend.rds", 
+            "app01/05_dat_status_trend.rds", overwrite = TRUE)
+  file.copy("Data/05_df_thresholds.rds", 
+            "app01/05_df_thresholds.rds", overwrite = TRUE)
+  file.copy("06_MAR001_results_2021_functions.R",
+            "app01/06_MAR001_results_2021_functions.R", overwrite = TRUE)
+  }
+
+```
+```{r}
+
+# sequence in plots   
+msfd_regions <- c("Black Sea",
+                  "Adriatic Sea", "Ionia Sea and central Med.",
+                  "Western Mediterranean Sea", 
+                  "Greater North Sea", "Celtic Seas", 
+                  "Bay of Biscay / Iberian coast",
+                  "Baltic Sea", "Norwegian Sea", "Barents Sea", 
+                  "Icelandic Ocean")
+
+
+```
+
+
+## Status assessment  
+
+### Overall 
+```{r, echo=FALSE, fig.width=10, fig.height=4}
+
+dat_status_trend %>%
+  mutate(PARAM = factor(
+    PARAM, 
+    levels = c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118"))
+  ) %>%
+  tabyl(Status, PARAM) %>%
+  adorn_percentages("col") %>%
+  adorn_pct_formatting(digits = 1) %>%
+  adorn_ns() %>%
+  kable() %>%
+  kable_classic(full_width = F, html_font = "Arial Narrow")
+
+
+```
+
+## Status by region {.tabset}  
+
+
+### North-East Atlantic Ocean
+```{r, fig.width=10, fig.height=4}
+
+table_status_region("North-East Atlantic Ocean")
+
+```
+
+### Baltic
+```{r, fig.width=10, fig.height=4}
+
+table_status_region("Baltic")
+
+```
+
+
+### Mediterranean  
+```{r, fig.width=10, fig.height=4}
+
+table_status_region("Mediterranean")
+
+```
+
+
+
+## Status by MSFD region {.tabset}  
+
+
+### Greater North Sea  
+```{r}
+
+table_status_msfdregion("Greater North Sea")
+
+```
+
+### Celtic Seas
+
+```{r}
+
+table_status_msfdregion("Celtic Seas")
+
+```
+
+### Bay of Biscay / Iberian coast  
+
+```{r}
+
+table_status_msfdregion("Bay of Biscay / Iberian coast")
+
+```
+
+### Baltic Sea
+
+```{r}
+
+table_status_msfdregion("Baltic Sea")
+
+```
+
+### Western Mediterranean Sea
+
+```{r}
+
+table_status_msfdregion("Western Mediterranean Sea")
+
+```
+
+### Adriatic Sea 
+
+```{r}
+
+table_status_msfdregion("Adriatic Sea")
+
+```
+
+### Ionia Sea and central Med. 
+
+```{r}
+
+table_status_msfdregion("Ionia Sea and central Med.")
+
+```
+
+### Norwegian 
+
+```{r}
+
+table_status_msfdregion("Norwegian Sea")
+
+```
+
+
+
+## Relative class   
+
+### Calculation  
+- See script 21 for details and testing   
+```{r}
+
+# Get data set with one line per PARAM, Group, and variable 'Basis_comb'
+# Basis_comb = W-W, D-W, D-L etc. depening on basis of the two thresholds
+dat_param_group <- dat_status_trend %>%
+  count(PARAM, Group) %>%
+  left_join(
+    df_thresholds %>%
+      mutate(Basis_comb = paste0(Thresh1_basis, "-", Thresh2_basis)) %>%
+      select(PARAM, Group, Basis_comb)
+    
+  )
+
+
+#
+# Add 'Relclass' to data using function 'get_data_with_relclass'  
+#
+dat_status_trend_relclass <- pmap_dfr(
+  list(
+    dat_param_group$PARAM,
+    dat_param_group$Group,
+    dat_param_group$Basis_comb),
+  get_data_with_relclass, 
+  dataset = dat_status_trend) %>%
+  mutate(PARAM = factor(PARAM, 
+                        levels = c("CD","CU","PB","HG","CB118","HCB","HCHG","DDEPP","BAP"))
+  ) %>%
+  filter(!is.na(Relclass)) %>%
+  rename(MSFD_region2 = MSFD_region) %>%
+  # Add Overall trend
+  mutate(
+    MSFD_region = case_when(
+      MSFD_region2 %in% "MWE" ~ "Western Mediterranean Sea",
+      MSFD_region2 %in% "MAD" ~ "Adriatic Sea",
+      MSFD_region2 %in% "MIC" ~ "Ionia Sea and central Med.",
+      MSFD_region2 %in% "BLK" ~ "Black Sea",
+      MSFD_region2 %in% "ABI" ~ "Bay of Biscay / Iberian coast",
+      MSFD_region2 %in% "ACS" ~ "Celtic Seas",
+      MSFD_region2 %in% "ANS" ~ "Greater North Sea",
+      MSFD_region2 %in% "BAL" ~ "Baltic Sea",
+      MSFD_region2 %in% "NOR" ~ "Norwegian Sea",
+      MSFD_region2 %in% "BAR" ~ "Barents Sea",
+      MSFD_region2 %in% "ICE" ~ "Icelandic Ocean")
+  ) %>%
+    mutate(MSFD_region = factor(MSFD_region, levels = msfd_regions))
+
+
+
+
+  
+```
+
+### Plots  
+
+```{r, fig.width=8,, fig.height=5}
+
+
+ggplot(dat_status_trend_relclass, aes(x = PARAM, y = Relclass)) +
+  geom_boxplot() +
+  geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
+  scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red")) +
+  theme_bw()
+
+above_plot_border <- dat_status_trend_relclass %>%
+  filter(Relclass > 10) %>%
+  count(PARAM) %>%
+  mutate(Relclass = 10.1, labeltext = paste("> 10:\nn =", n))
+
+ggplot(dat_status_trend_relclass %>% filter(Relclass <= 10), 
+       aes(x = PARAM, y = Relclass)) +
+  geom_boxplot() +
+  geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
+  scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red")) +
+  scale_y_continuous(breaks = 0:10, minor_breaks = NULL, limits = c(0,10.8)) + 
+  geom_text(data = above_plot_border, aes(label = labeltext), 
+            vjust = -0.3, size = rel(3.5), lineheight = 0.9) +
+  theme_bw() 
+
+
+
+```
+
+
+## Relative class by region {.tabset}   
+
+### North-East Atlantic Ocean  
+```{r}
+
+plot_relclass_region("North-East Atlantic Ocean")
+
+```
+
+### Baltic
+
+```{r}
+plot_relclass_region("Baltic")
+```
+
+### Mediterranean
+
+```{r}
+plot_relclass_msfdregion("Mediterranean")
+```
+
+
+## Relative class by MSFD region {.tabset}   
+
+
+### Greater North Sea  
+```{r}
+
+plot_relclass_msfdregion("Greater North Sea")
+
+```
+
+
+
+### Celtic Seas
+
+```{r}
+
+plot_relclass_msfdregion("Celtic Seas")
+
+```
+
+### Bay of Biscay / Iberian coast  
+
+```{r}
+
+plot_relclass_msfdregion("Bay of Biscay / Iberian coast")
+
+```
+
+### Baltic Sea
+
+```{r}
+
+plot_relclass_msfdregion("Baltic Sea")
+
+```
+
+### Western Mediterranean Sea
+
+```{r}
+
+plot_relclass_msfdregion("Western Mediterranean Sea")
+
+```
+
+### Adriatic Sea 
+
+```{r}
+
+plot_relclass_msfdregion("Adriatic Sea")
+
+```
+
+### Ionia Sea and central Med. 
+
+```{r}
+
+plot_relclass_msfdregion("Ionia Sea and central Med.")
+
+```
+
+### Norwegian 
+
+```{r}
+
+plot_relclass_msfdregion("Norwegian Sea")
+
+```
+
+
+## Relative class by parameter, regions {.tabset}    
+
+### CB118  
+```{r, fig.width=9, fig.height=6}
+
+plot_relclass_param("CB118")
+
+```
+
+### HG  
+```{r, fig.width=9, fig.height=6}
+
+plot_relclass_param("HG")
+
+```
+
+### HCHG (Lindane)  
+
+```{r, fig.width=9, fig.height=6}
+
+plot_relclass_param("HCHG")
+
+```
+
+
+### DDEPP (indicator of DDT)  
+
+```{r, fig.width=9, fig.height=6}
+
+set.seed(43)
+plot_relclass_param("DDEPP")
+
+```
+
+
+
+## Relative class by parameter, MSFD regions {.tabset}    
+
+
+
+### CB118  
+```{r, fig.width=9, fig.height=6}
+
+set.seed(43)
+
+# Straight plot
+plot_relclass_param("CB118", msfd_regions = TRUE)
+
+# Custom plot   
+gg <- plot_relclass_param("CB118", msfd_regions = TRUE)
+
+gg2 <- gg +
+  scale_y_continuous(
+    limits = c(1,10.8),
+    breaks = seq(0,10), 
+    labels = c("", "0", "BAC", "EQS", paste0(2:8, "x EQS"))
+  ) +
+  geom_vline(aes(xintercept = 3.5)) +
+  geom_vline(aes(xintercept = 6.5))
+gg2
+
+if (TRUE){
+
+  ggsave("Figures/Relative_class_CB118_by_MSFDregion.png", gg2, width = 9.5, height = 5, dpi = 400)
+  
+}
+
+
+```
+
+#### Data for excel  
+```{r}
+
+
+if (TRUE){
+
+  #
+  # Save plot data for EEA (start - writing excel is further down)
+  #
+  # boxplot data
+  gg2 <- plot_relclass_param("CB118", msfd_regions = TRUE, get_boxplot_only = TRUE)
+  dd <- layer_data(gg2)
+  
+  x_labels <- c("Adriatic Sea", "Ionia Sea and central Med.", "Western Mediterranean Sea", 
+                "Greater North Sea", "Celtic Seas", "Bay of Biscay / Iberian coast", 
+                "Baltic Sea")
+  
+  plotdata_boxplot <- dd %>%
+    select(x, ymin, lower, middle, upper, ymax, new_width) %>%
+    mutate(MSFD_region = x_labels[x], .before = 1)
+
+  # point data
+  gg2 <- plot_relclass_param("CB118", msfd_regions = TRUE, get_points_only = TRUE)
+  plotdata_points <- dat_status_trend_relclass %>%
+    filter(PARAM %in% "CB118") %>%
+    select(MSFD_region, Relclass, Status) %>%
+    rename(x_label = MSFD_region, y = Relclass, colour = Status) %>%
+    mutate(x = as.numeric(x_label)) %>%
+    as.data.frame()
+
+  if (FALSE){
+    
+    # test box plot
+    ggplot(plotdata_boxplot, aes(x, group = x)) +
+      geom_boxplot(aes(lower=lower, upper=upper, middle=middle, ymin=ymin, ymax=ymax), stat = "identity")
+    ggplot(plotdata_boxplot %>% mutate(MSFD_region = fct_inorder(MSFD_region)), 
+           aes(MSFD_region, group = MSFD_region)) +
+      geom_boxplot(aes(lower=lower, upper=upper, middle=middle, ymin=ymin, ymax=ymax), stat = "identity")
+    
+    # test points
+    ggplot() +
+      geom_jitter(data = plotdata_points, aes(x,y, color = colour))
+
+    # test box plot + points
+    ggplot(plotdata_boxplot, aes(x)) +
+      geom_boxplot(aes(group = x, lower=lower, upper=upper, middle=middle, ymin=ymin, ymax=ymax), 
+                   stat = "identity") +
+      geom_point(data = plotdata_points, aes(x, y, color = colour))
+    
+  }
+  ggplot2::ggplot_build(gg2)
+  
+  y_axis_labels <- data.frame(
+    y = seq(0,10), 
+    labels = c("", "0", "BAC", "EQS", paste0(2:8, "x EQS"))
+  )
+
+  #
+  # Plot data saved to this excel file:
+  # "Figures/06_Relative_class_CB118_by_MSFDregion_plotdata.xlsx" 
+  # - this is done a bit further down in this script, in 
+  #   'Trend meta-analysis by MSFD region' - CB118
+  #
+  
+}
+
+
+```
+
+
+### HG  
+```{r, fig.width=9, fig.height=6}
+
+set.seed(43)
+plot_relclass_param("HG", msfd_regions = TRUE)
+
+if (TRUE){
+
+  # Custom plot   
+
+  
+  set.seed(43)
+  gg <- plot_relclass_param("HG", msfd_regions = TRUE)
+
+  gg2 <- gg +
+    scale_y_continuous(
+      limits = c(1,10.8),
+      breaks = seq(0,10), 
+      labels = c("", "0", "EQS", "MPC", paste0(2:8, "x EAC"))
+    ) +
+    geom_vline(aes(xintercept = 1.5)) +
+    geom_vline(aes(xintercept = 4.5)) +
+    geom_vline(aes(xintercept = 7.5))
+
+  ggsave("Figures/Relative_class_HG_by_MSFDregion.png", gg2, width = 8, height = 5, dpi = 400)
+  
+}
+
+```
+
+### HCHG (Lindane)  
+
+```{r, fig.width=9, fig.height=6}
+
+set.seed(43)
+plot_relclass_param("HCHG", msfd_regions = TRUE)
+
+```
+
+
+
+### DDEPP (indicator of DDT)  
+
+```{r, fig.width=9, fig.height=6}
+
+set.seed(43)
+plot_relclass_param("DDEPP", msfd_regions = TRUE)
+
+```
+
+
+## Trends table  
+
+### Overall 
+```{r, echo=FALSE}
+
+dat_status_trend %>%
+  mutate(PARAM = factor(
+    PARAM, 
+    levels = c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118"))
+  ) %>%
+  tabyl(Trend, PARAM) %>%
+  adorn_percentages("col") %>%
+  adorn_pct_formatting(digits = 1) %>%
+  adorn_ns() %>%
+  kable() %>%       # add region as caption  
+  kable_classic(full_width = F, html_font = "Arial Narrow") 
+
+```
+#### Save as Excel 
+
+* Percentages plus total numbers  
+* Used in assessment text  
+
+```{r}
+
+tab1 <- dat_status_trend %>%
+  mutate(PARAM = factor(
+    PARAM, 
+    levels = c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118"))
+  ) %>%
+  tabyl(Trend, PARAM)
+
+# Percentages  
+tab2a <- tab1 %>%
+  adorn_percentages("col") %>%
+  adorn_pct_formatting(digits = 1, affix_sign = FALSE)
+
+# Numbers (only to get the totals on row 5)  
+tab2b <- tab1 %>%
+  adorn_totals()
+# Turn numbers to characters
+for (col in 1:ncol(tab2b))
+  tab2b[,col] <- as.character(tab2b[,col])
+
+# Combine
+tab_report <- bind_rows(tab2a,  tab2b[5,])
+
+writexl::write_xlsx(tab_report, "Figures/Trends_overall.xlsx")
+
+tab_report
+
+```
+
+
+## Trend tables by region  
+
+
+### North-East Atlantic Ocean
+```{r, fig.width=10, fig.height=4}
+
+table_trends_region("North-East Atlantic Ocean")
+
+```
+
+### Baltic
+```{r, fig.width=10, fig.height=4}
+
+table_trends_region("Baltic")
+
+```
+
+
+### Mediterranean  
+```{r, fig.width=10, fig.height=4}
+
+table_trends_region("Mediterranean")
+
+```
+
+
+
+
+## Trend tables by MSFD region{.tabset} 
+
+
+### Greater North Sea  
+```{r}
+
+table_trends_msfdregion("Greater North Sea")
+
+```
+
+### Celtic Seas
+
+```{r}
+
+# debugonce(table_trends_msfdregion)
+table_trends_msfdregion("Celtic Seas")
+
+```
+
+### Bay of Biscay / Iberian coast  
+
+```{r}
+
+table_trends_msfdregion("Bay of Biscay / Iberian coast")
+
+```
+
+### Baltic Sea
+
+```{r}
+
+table_trends_msfdregion("Baltic Sea")
+
+```
+
+### Western Mediterranean Sea
+
+```{r}
+
+table_trends_msfdregion("Western Mediterranean Sea")
+
+```
+
+### Adriatic Sea 
+
+```{r}
+
+table_trends_msfdregion("Adriatic Sea")
+
+```
+
+### Ionia Sea and central Med. 
+
+```{r}
+
+table_trends_msfdregion("Ionia Sea and central Med.")
+
+```
+
+### Norwegian Sea  
+
+```{r}
+
+table_trends_msfdregion("Norwegian Sea")
+
+```
+
+
+
+
+```{r}
+
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#ov#o#o#o
+#
+# Trends by region   
+#  - Meta-analysis of trends by station  
+#
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#ov#o#o#o
+
+
+```
+
+
+```{r, echo=FALSE, fig.width=8, fig.height=3}
+
+#
+# Perform meta-analysis
+#
+
+meta_trends_overall <- dat_series_trend %>%
+  filter(!is.na(Slope)) %>%
+  mutate(Dummy = 1) %>%
+  nest_by(PARAM) %>% # str(2)
+  mutate(meta_result = list(get_slope_estimates_grouped(data, "Dummy"))) %>%
+  unnest(meta_result) %>%
+  mutate(
+    Change_perc = 100*(10^(Estimate)-1),
+    Change_perc_10yr = 100*(10^(10*Estimate)-1),
+    Change_perc_10yr_lo = 100*(10^(10*CI_lower)-1),
+    Change_perc_10yr_up = 100*(10^(10*CI_upper)-1)
+  ) %>%
+  # Add Overall trend
+  mutate(
+    `Overall trend` = case_when(
+      CI_upper < 0 ~ "Downward",
+      CI_lower > 0 ~ "Upward",
+      TRUE ~ "No sign. pattern")
+  ) 
+
+meta_trends_region <- dat_series_trend %>%
+  filter(!is.na(Slope)) %>%
+  nest_by(PARAM) %>% # str(2)
+  mutate(meta_result = list(get_slope_estimates_grouped(data, "Region"))) %>%
+  unnest(meta_result) %>%
+  mutate(
+    Change_perc = 100*(10^(Estimate)-1),
+    Change_perc_10yr = 100*(10^(10*Estimate)-1),
+    Change_perc_10yr_lo = 100*(10^(10*CI_lower)-1),
+    Change_perc_10yr_up = 100*(10^(10*CI_upper)-1)
+  ) %>%
+  # Add Overall trend
+  mutate(
+    `Overall trend` = case_when(
+      CI_upper < 0 ~ "Downward",
+      CI_lower > 0 ~ "Upward",
+      TRUE ~ "No sign. pattern")
+  ) 
+
+meta_trends_msfdregion <- dat_series_trend %>%
+  filter(!is.na(Slope)) %>%
+  nest_by(PARAM) %>% # str(2)
+  mutate(meta_result = list(get_slope_estimates_grouped(data, "MSFD_region"))) %>%
+  unnest(meta_result) %>%
+  mutate(
+    Change_perc = 100*(10^(Estimate)-1),
+    Change_perc_10yr = 100*(10^(10*Estimate)-1),
+    Change_perc_10yr_lo = 100*(10^(10*CI_lower)-1),
+    Change_perc_10yr_up = 100*(10^(10*CI_upper)-1)
+  ) %>%
+  rename(MSFD_region2 = MSFD_region) %>%
+  # Add Overall trend
+  mutate(
+    `Overall trend` = case_when(
+      CI_upper < 0 ~ "Downward",
+      CI_lower > 0 ~ "Upward",
+      TRUE ~ "No sign. pattern"),
+    MSFD_region = case_when(
+      MSFD_region2 %in% "MWE" ~ "Western Mediterranean Sea",
+      MSFD_region2 %in% "MAD" ~ "Adriatic Sea",
+      MSFD_region2 %in% "MIC" ~ "Ionia Sea and central Med.",
+      MSFD_region2 %in% "BLK" ~ "Black Sea",
+      MSFD_region2 %in% "ABI" ~ "Bay of Biscay / Iberian coast",
+      MSFD_region2 %in% "ACS" ~ "Celtic Seas",
+      MSFD_region2 %in% "ANS" ~ "Greater North Sea",
+      MSFD_region2 %in% "BAL" ~ "Baltic Sea",
+      MSFD_region2 %in% "NOR" ~ "Norwegian Sea",
+      MSFD_region2 %in% "BAR" ~ "Barents Sea",
+      MSFD_region2 %in% "ICE" ~ "Icelandic Ocean")
+  ) 
+
+col_scale <- c("Downward"  = "green3", "Upward" = "red", "No sign. pattern" = "black")
+
+
+
+xtabs(~ addNA(MSFD_region) + MSFD_region2, meta_trends_msfdregion)
+
+```
+
+
+```{r}
+
+### SAVE ### 
+
+saveRDS(meta_trends_region, "Data/06_meta_trends_region.rds")
+saveRDS(meta_trends_msfdregion, "Data/06_meta_trends_msfdregion.rds")
+
+```
+
+
+## Trend meta-analysis by region {.tabset}
+
+
+### CD  
+```{r, fig.width=6, fig.height=2}
+
+plot_slope_region("CD")
+
+```
+
+### CU  
+```{r, fig.width=6, fig.height=2}
+
+plot_slope_region("CU")
+
+```
+
+### PB  
+```{r, fig.width=6, fig.height=2}
+
+plot_slope_region("PB")
+
+```
+
+### HG  
+```{r, fig.width=6, fig.height=2}
+
+plot_slope_region("HG")
+
+```
+
+### HCB  
+```{r, fig.width=6, fig.height=2}
+
+plot_slope_region("HCB")
+
+```
+
+### HCHG (Lindane)  
+```{r, fig.width=6, fig.height=2}
+
+plot_slope_region("HCHG")
+
+```
+
+### DDEPP (indicator of DDT)  
+```{r, fig.width=6, fig.height=2}
+
+plot_slope_region("DDEPP")
+
+```
+
+### CB118  
+```{r, fig.width=6, fig.height=2}
+
+plot_slope_region("CB118")
+
+```
+
+### BAP (Benzo[a]pyrene)  
+```{r, fig.width=6, fig.height=2}
+
+plot_slope_region("BAP")
+
+```
+
+
+## Trend meta-analysis by MSFD region {.tabset}
+
+
+### CD  
+```{r, fig.width=6, fig.height=3}
+
+plot_slope_msfdregion("CD")
+
+```
+
+### CU  
+```{r, fig.width=6, fig.height=3}
+
+plot_slope_msfdregion("CU")
+
+```
+
+### PB  
+```{r, fig.width=6, fig.height=3}
+
+plot_slope_msfdregion("PB")
+
+```
+
+### HG  
+```{r, fig.width=6, fig.height=3}
+
+plot_slope_msfdregion("HG")  
+
+if (TRUE){
+
+  # Custom plot   
+
+  
+  set.seed(43)
+  gg <- plot_slope_msfdregion("HG")  
+
+  gg2 <- gg +
+    scale_y_continuous(
+      limits = c(1,10.8),
+      breaks = seq(0,10), 
+      labels = c("", "0", "EQS", "MPC", paste0(2:8, "x EAC"))
+    ) +
+    geom_vline(aes(xintercept = 1.5)) +
+    geom_vline(aes(xintercept = 4.5)) +
+    geom_vline(aes(xintercept = 7.5))
+
+  ggsave("Figures/Meta_trend_HG_by_MSFDregion.png", gg, width = 6, height = 3, dpi = 400)
+  
+}
+
+
+
+```
+
+### HCB  
+```{r, fig.width=6, fig.height=3}
+
+plot_slope_msfdregion("HCB")
+
+```
+
+### HCHG (Lindane)  
+```{r, fig.width=6, fig.height=3}
+
+plot_slope_msfdregion("HCHG")
+
+```
+
+### DDEPP (indicator of DDT)  
+```{r, fig.width=6, fig.height=3}
+
+plot_slope_msfdregion("DDEPP")
+
+
+if (TRUE){
+
+  # Custom plot   
+
+  
+  set.seed(43)
+  gg <- plot_slope_msfdregion("DDEPP")  
+
+  ggsave("Figures/Meta_trend_DDEPP_by_MSFDregion.png", gg, width = 6, height = 3, dpi = 400)
+  
+}
+
+```
+
+### CB118  
+```{r, fig.width=6, fig.height=3}
+
+plot_slope_msfdregion("CB118")
+
+```
+
+
+#### Save plot
+```{r, fig.width=6, fig.height=3}
+
+
+if (TRUE){
+
+  # Custom plot   
+
+  set.seed(43)
+  gg <- plot_slope_msfdregion("CB118")  
+
+  ggsave("Figures/Meta_trend_CB118_by_MSFDregion.png", gg, width = 6, height = 3, dpi = 400)
+  
+}
+
+```
+
+
+#### Save as excel (plot data for this plot and boxplot)   
+```{r, fig.width=6, fig.height=3}
+
+if (TRUE){
+  
+  dd <- layer_data(gg) %>%
+    arrange(desc(x)) %>%
+    mutate(MSFD_region = c("Greater North Sea", "Celtic Seas", 
+                           "Bay of Biscay / Iberian coast", "Baltic Sea"))
+  
+  #
+  # Save plot data
+  # 
+  # NOTE: 'regression_lines' and 'labels' must already have been created (in memory) in 
+  #   'Relative class by parameter, MSFD regions' - CB118
+  #
+  
+  writexl::write_xlsx(
+    list(
+      points = plotdata_points,
+      boxplot = plotdata_boxplot,
+      `y axis labels` = y_axis_labels,
+      `inset barplot` = dd
+    ),
+    "Figures/06_Relative_class_CB118_by_MSFDregion_plotdata.xlsx"
+  )
+  
+  
+
+}
+
+
+```
+
+### BAP (Benzo[a]pyrene)  
+```{r, fig.width=6, fig.height=3}
+
+plot_slope_region("BAP")
+
+```
+
+### Remake trends table with addition    
+
+#### Extend the already made Trends table     
+
+* Percentages plus total numbers  
+* Used in assessment text  
+
+```{r}
+
+# Made higher up in this script
+tab_report <- readxl::read_excel("Figures/Trends_overall.xlsx")
+
+# Overall trends 
+trend_overall_meta <- meta_trends_overall %>%
+  select(PARAM, Dummy, Change_perc_10yr, Change_perc_10yr_lo, Change_perc_10yr_up, `Overall trend`) %>%
+  filter(PARAM %in% unique(status_by_region$PARAM))
+
+# Overall trends , reformat 1
+df1 <- trend_overall_meta %>%
+    mutate(
+      PARAM = factor(
+      PARAM, 
+      levels = c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118")),
+      Change_txt = paste0(
+        round(Change_perc_10yr, 0), " (",
+        round(Change_perc_10yr_lo, 0), ",", round(Change_perc_10yr_up, 0), ")")
+    ) %>%
+    select(PARAM, Change_txt,  `Overall trend`)
+
+# Overall trends , reformat 2
+df2 <- bind_rows(
+  df1 %>% 
+    select(PARAM, `Overall trend`) %>%
+    pivot_wider(names_from = PARAM, values_from = `Overall trend`),
+  
+  df1 %>% 
+    select(PARAM, Change_txt) %>%
+    pivot_wider(names_from = PARAM, values_from = Change_txt)
+)
+
+# Overall trends , reformat 3
+df3 <- data.frame(
+  Trend = c("Overall trend", "Change/decade (%)"),
+  df2)
+
+# Combine
+tab_report_extended <- bind_rows(tab_report, df3)
+
+tab_report_extended
+
+```
+#### Save excle
+```{r}
+
+
+# Made higher up in this script
+# tab_report <- readxl::read_excel("Figures/Trends_overall.xlsx")
+
+```
+
+## Maps {.tabset}
+
+```{r status_colors}
+
+# Colors used for status  
+colors_status <- RColorBrewer::brewer.pal(8, "Set1")[c(2,6,5,1)] # blue, yellow, orange, red
+colors_status[3] <- "orange"   # sharper orange
+colors_status[4] <- "red"      # sharper red
+names(colors_status) <- c("blue", "yellow", "orange", "red")
+
+```
+
+```{r background map}
+
+# Background map  
+my_map <- map_data("world")
+
+```
+
+```{r make_single_plot, echo=FALSE}  
+
+# NOTE: At the end of this part, we also make plots to put together to a combined plot
+# See "map_param_for_combined_plot" below (just a modified version of 'map_param')
+
+```
+
+### CD
+
+```{r, echo=FALSE, fig.width = 9, fig.height = 7}
+
+# debugonce(map_param)
+map_param("CD")
+
+# or:
+# map_param("CD", "custom")
+
+```
+
+
+### CU
+
+```{r, echo=FALSE, fig.width = 9, fig.height = 7}
+map_param("CU")
+```
+
+### PB
+
+```{r, echo=FALSE, fig.width = 9, fig.height = 7}
+map_param("PB")
+```
+
+### HG
+
+```{r, echo=FALSE, fig.width = 9, fig.height = 7}
+map_param("HG")
+```
+
+### HCB
+
+```{r, echo=FALSE, fig.width = 9, fig.height = 7}
+map_param("HCB")
+```
+
+### HCHG (Lindane)
+
+```{r, echo=FALSE, fig.width = 9, fig.height = 7}
+map_param("HCHG")
+```
+
+### DDEPP (indicator of DDT)
+
+```{r, echo=FALSE, fig.width = 9, fig.height = 7}
+map_param("DDEPP")
+```
+
+
+### CB118
+
+```{r, echo=FALSE, fig.width = 9, fig.height = 7}
+map_param("CB118")
+```
+## Combined map  
+
+### Test a single map    
+```{r make_combined_plot1, echo=FALSE, fig.width = 7, fig.height = 7}
+
+# map_param_for_combined_plot_s <- safely(map_param_for_combined_plot)
+
+# Test to get x and y limits for CD plot (which covers the biggest area)
+# debugonce(map_param_for_combined_plot)
+test <- map_param_for_combined_plot("CD")
+map_param_for_combined_plot("CD", legends = "shape")
+map_param_for_combined_plot("CD", legends = "none")
+# test <- map_param_for_combined_plot("CD", labeltype = "custom")
+# test <- map_param_for_combined_plot("CU")
+
+if (FALSE){
+  # get x and y limits (used in code above)
+  layer_scales(test)$x$range$range %>% dput()
+  layer_scales(test)$y$range$range %>% dput()
+}
+
+test
+
+```
+
+
+### Combined map, label "low, moderate, high", ver. 1: colour legend in map  
+```{r, fig.width=10, fig.height=10}
+
+map_list <- 
+  c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118") %>%
+  purrr::map(map_param_for_combined_plot)
+
+# Make shape legend  
+shape_legend <- map_param_for_combined_plot("CD", legends = "shape") %>%
+  cowplot::get_legend()
+
+gg <- cowplot::plot_grid(
+  cowplot::plot_grid(plotlist = map_list, nrow = 3),
+  cowplot::plot_grid(shape_legend, NULL, NULL, nrow = 1),
+  nrow = 2, rel_heights = c(1,0.2)
+)
+
+ggsave("Figures/06_Combined_map_ver1.png", gg, 
+       width = 13, height = 13, 
+       bg = "white")
+
+gg
+
+```
+
+
+### Combined map, label "low, moderate, high", ver. 2: no legend in map  
+```{r, fig.width=10, fig.height=10}
+
+map_list <- 
+  c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118") %>%
+  purrr::map(map_param_for_combined_plot, legends = "none")
+
+# Make fill legend  
+fill_legend <- map_param_for_combined_plot("CD", legends = "fill") %>%
+  cowplot::get_legend()
+
+# Make shape legend  
+shape_legend <- map_param_for_combined_plot("CD", legends = "shape") %>%
+  cowplot::get_legend()
+
+gg <- cowplot::plot_grid(
+  cowplot::plot_grid(plotlist = map_list, nrow = 3),
+  cowplot::plot_grid(fill_legend, shape_legend, NULL, nrow = 1),
+  nrow = 2, rel_heights = c(1,0.2)
+)
+
+ggsave("Figures/06_Combined_map_ver2.png", gg, 
+       width = 13, height = 13, 
+       bg = "white")
+
+gg
+
+``` 
+
+
+### Combined map, custom labels     
+```{r, fig.width=10, fig.height=10}
+
+map_list <- 
+  c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118") %>%
+  purrr::map(map_param_for_combined_plot, labeltype = "custom")
+
+# Make legend
+# not needed, reuse existing
+
+gg <- cowplot::plot_grid(
+  cowplot::plot_grid(plotlist = map_list, nrow = 3),
+  cowplot::plot_grid(shape_legend, NULL, NULL, nrow = 1),
+  nrow = 2, rel_heights = c(1,0.2)
+)
+
+ggsave("Figures/06_Combined_map_customlabels.png", gg, 
+       width = 13, height = 13, 
+       bg = "white")
+
+ggsave("Figures/06_Combined_map_customlabels_res500.png", gg,
+       width = 13, height = 13, dpi = 500,
+       bg = "white")
+
+gg
+
+```
+
+
+## Levels by species  
+
+### Threshold 1  
+```{r}
+
+plot_level_vs_species("CD")
+plot_level_vs_species("CU")
+plot_level_vs_species("PB")
+plot_level_vs_species("HG")
+plot_level_vs_species("HCB")
+plot_level_vs_species("HCHG")    
+plot_level_vs_species("DDEPP")
+plot_level_vs_species("CB118")    
+# plot_level_vs_species("CB118", log = FALSE)  
+plot_level_vs_species("BAP")
+
+# param <- "CB118"
+# dat_status_3 %>% filter(PARAM == param) %>% View(param)
+
+```
+
+### Threshold 2  
+```{r}
+
+plot_level_vs_species("CD", threshold = 2)
+plot_level_vs_species("HG", threshold = 2)
+plot_level_vs_species("HCHG", threshold = 2)  
+plot_level_vs_species("CB118", threshold = 2)  
+
+```
+
+
+
+## Levels by region     
+
+### Threshold 1  
+```{r}
+
+plot_level_vs_region("CD")
+plot_level_vs_region("CU")
+plot_level_vs_region("PB")
+plot_level_vs_region("HG")
+plot_level_vs_region("HCB")   
+plot_level_vs_region("HCHG")    
+plot_level_vs_region("DDEPP")
+plot_level_vs_region("CB118")    
+plot_level_vs_region("BAP")
+
+# param <- "CB118"
+# dat_status_3 %>% filter(PARAM == param) %>% View(param)
+
+```
+
+
+### Threshold 2  
+```{r}
+
+plot_level_vs_region("CD", threshold = 2)
+plot_level_vs_region("HG", threshold = 2)
+plot_level_vs_region("HCHG", threshold = 2)  
+plot_level_vs_region("CB118", threshold = 2)  
+
+```
+
+
+
+## Levels by Country       
+
+### Threshold 1  
+```{r}
+
+plot_level_vs_country("CD")
+plot_level_vs_country("CU")
+plot_level_vs_country("PB")
+plot_level_vs_country("HG")
+plot_level_vs_country("HCB")   
+plot_level_vs_country("HCHG")    
+plot_level_vs_country("DDEPP")
+plot_level_vs_country("CB118")    
+plot_level_vs_country("BAP")
+
+# param <- "CB118"
+# dat_status_3 %>% filter(PARAM == param) %>% View(param)
+
+```
+
+
+### Threshold 2  
+```{r}
+
+plot_level_vs_country("CD", threshold = 2)
+plot_level_vs_country("HG", threshold = 2)
+plot_level_vs_country("HCHG", threshold = 2)  
+plot_level_vs_country("CB118", threshold = 2)  
+
+```
+
