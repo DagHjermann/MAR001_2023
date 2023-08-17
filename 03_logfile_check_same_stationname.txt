@@ -1,0 +1,192 @@
+54.697_11.885 
+FYN0018361 
+MFS0703001 
+MFS1001001 
+MFS1102001 
+La Potée de beurre 
+Adour 
+MFS1104001 
+FYN008361 
+SJY HADF5010 
+Bonne Anse 
+MASLUA 
+MGAARE 
+Bonne Anse - Palmyre 
+Larmor Baden 
+MGASMO 
+MASNAV 
+SJY LBMTM2 
+Adour marégraphe 
+MASPRA 
+MGAVIV 
+Hendaye - Chingoudy 
+Pointe de Chemoulin 
+MGACTC 
+54.697_11.885 
+FYN0018361 
+MFS0703001 
+MFS1001001 
+MFS1102001 
+MFS1104001 
+FYN008361 
+Adour 
+La Potée de beurre 
+SJY HADF5010 
+Bonne Anse 
+MASLUA 
+MGAARE 
+Bonne Anse - Palmyre 
+Larmor Baden 
+MGASMO 
+MASNAV 
+SJY LBMTM2 
+Adour marégraphe 
+MGAVIV 
+MASPRA 
+Hendaye - Chingoudy 
+MGACTC 
+Pointe de Chemoulin 
+STO0102063 
+MGAVLG 
+Le Croisic 
+Hendaye - Chingoudy 2 
+Bourgneuf - Coupelasse 
+MASRIB 
+STO0102065 
+MGAESP 
+Hossegor limite nord parcs 
+MGAARO 
+ÅRH 170165 
+Pointe de Mousterlin 
+MCALAR 
+Ile Dumet (a) 
+ÅRH 170166 
+ARH170006 
+STO0201113 
+MGACAI 
+MCASAN 
+KBH1723 
+STR 0102064 
+MGAFPA 
+Le Guilvin 
+STR mf41001 
+54.697_11.885 
+FYN0018361 
+MFS0703001 
+MFS1001001 
+MFS1102001 
+FYN008361 
+MFS1104001 
+La Potée de beurre 
+Adour 
+SJY HADF5010 
+Bonne Anse 
+MASLUA 
+MGAARE 
+Bonne Anse - Palmyre 
+Larmor Baden 
+MGASMO 
+MASNAV 
+SJY LBMTM2 
+MGAVIV 
+Adour marégraphe 
+Hendaye - Chingoudy 
+MASPRA 
+Pointe de Chemoulin 
+MGACTC 
+STO0102063 
+MGAVLG 
+Le Croisic 
+Hendaye - Chingoudy 2 
+Bourgneuf - Coupelasse 
+ÅRH 170165 
+MGAARO 
+MGAESP 
+Hossegor limite nord parcs 
+STO0102065 
+MASRIB 
+Pointe de Mousterlin 
+MCALAR 
+ÅRH 170166 
+Ile Dumet (a) 
+ARH170006 
+MGACAI 
+STO0201113 
+KBH1723 
+MCASAN 
+STR 0102064 
+MGAFPA 
+Le Guilvin 
+STR mf41001 
+MGAVSA 
+Le Halguen 
+Pointe er Fosse 
+ARH170165 
+MGACED 
+MGAFPI 
+Le Pointeau 
+Boyardville 
+Baie d'Audierne - Penhors 
+MGALGD 
+Kvädöfjärden 
+MPVBIA 
+MGACHO 
+MCASPA 
+Les Hosses 
+MGAMFR 
+Talmont 
+Pontaillac 
+L'Estrée - Brouage 
+MGACME 
+MPVFUE 
+MGAMSA 
+MPVIGU 
+Tharon 
+VA08 / Orren 
+Cap Ferret 
+MGAMUX 
+Baie de l'Aiguillon 
+VEJ st4 
+MGACOR 
+MPVMUN 
+Bakkegr 
+MCASPE 
+MGACRB 
+MPVORI 
+Villes-Martin 
+Barres de Pen Bron 1 
+Riec sur Belon 
+Les Jacquets 
+MGAPIN 
+Capbreton ouest 
+La Fosse 
+MCASUA 
+MGAPOL 
+La Jument 
+MCASVI 
+Châtelaillon 
+Beg er Vil 
+Les Palles 
+Rivedoux 
+Mus de loup 
+MCAURD 
+MFS0103061 
+MGAPOR 
+M39 
+Ciboure - La Nivelle 
+La Mouclière 
+Noirmoutier - Gresse-loup 
+Roguedas 
+MGARIB 
+ROS MF41004 
+MASAVI 
+ROS VSJ41007 
+Pen Bé 
+ROS1727 
+MASGIJ 
+ROSNy Del 
+Comprian 
+SJY FFMTM1 
+Dagnas 
+Fouesnant 
+FYN M2 
