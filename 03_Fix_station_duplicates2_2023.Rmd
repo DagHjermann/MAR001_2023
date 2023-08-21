@@ -1238,7 +1238,7 @@ if (TRUE){
 ```
 
 
-## 8. APPENDIX Duplicate check, name missing  
+## APPENDIX 1: Duplicate check, name missing  
 - We would do this for Finland only   
 - But it turnds out there are almost no Finnish data left 
 ```{r}
@@ -1315,6 +1315,29 @@ message("Distances < ", dist_limit, " km: ",
 
 ```
 
-## 9. More checking of df_check_all2 (no changes)  
+## APPENDIX 2: More checking of df_check_all2 (no changes)  
 
 ** This part was cut and saved separately as script 03extra  
+
+## APPENDIX 3: Check positions for station with deviant MSFD region in one year   
+
+- FRB65 (DK) has been registered with MSFD_region 'ATL' in 2006 and with 'ANS' in all other years (see median file 'Data/04_dat_medians.rds' produced by script 04)   
+- This splits the time series, so 2006 data end up as one-year time series for each contaminant, and the other time series lack 2006  
+- We remove these one-year time series in script 07 (the start of part 8, line no 345)    
+- The code below shows that also the coordinates of this year shows that the coordinates are unusual from most years, so we just leave the fix in script 07 as it is    
+- In other words, the 2006 data have been removed from this station, as identification was uncertain (due to position and given MSFD region)   
+
+```{r}
+
+# dat_7 <- readRDS("Data/03_dat_7.rds")
+
+
+dat_7 %>%
+  filter(id  == "FRB65") %>%
+  distinct(id, Longitude, Latitude, MYEAR, MSFD_region) %>%
+  count(id, Longitude, Latitude, MSFD_region) %>%
+  ggplot(aes(Longitude, Latitude)) +
+  geom_text(aes(label = n, colour = MSFD_region))
+
+```
+

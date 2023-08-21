@@ -12,8 +12,8 @@ Note: the scripts are based on the 2021 version
     - 01 - read raw data from the two sources    
     - 03 - based on data from 01, remove duplicated data (data that are in both sources) and make 'cleaned' data   
     - 04 - based on data from 03, make per-year medians  
-    - 07 - based on data from 04, perform status classification    
     - 05 - based on data from 04 and 07, perform time series analysis  
+    - 07 - based on data from 04, perform status classification    
     - 06 - based on results from 05 and 07, make output tables and graphs  
     
 * Function scripts (contains functions used by other scripts - should not normally need to be opened)   

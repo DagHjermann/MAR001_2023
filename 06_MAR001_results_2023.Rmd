@@ -68,7 +68,6 @@ file.info(fn)$mtime
 
 dat_series_trend <- readRDS("Data/05_dat_series_trend.rds")
 
-
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
 # Threshold values   
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-

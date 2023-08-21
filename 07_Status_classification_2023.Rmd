@@ -294,7 +294,7 @@ if (FALSE){
 ### test plot 1, threshold level 1       
 ```{r}
 
-source("06_MAR001_results_2021_functions.R")
+source("06_MAR001_results_functions.R")
 
 # debugonce(plot_level_vs_species)
 plot_level_vs_species("CD", data = dat_status_3)
@@ -402,6 +402,7 @@ filename <- "Data/07_dat_status_trend.rds"
 filename_backup <- sub(".rds", paste0("_", lubridate::now(), ".rds"), filename, fixed = TRUE)
 filename_backup <- gsub(":", "-", filename_backup, fixed = TRUE)
 filename_backup <- gsub(" ", "_", filename_backup, fixed = TRUE)
+
 filename_backup
 file.copy(filename, filename_backup)
 

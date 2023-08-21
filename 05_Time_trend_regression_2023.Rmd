@@ -944,6 +944,24 @@ dat_series_trend %>%
 
 ```
 
+
+### Remove 20 'one-year time series'   
+
+- FRB65 (DK) has been split in two because it was registered with MSFD_region 'ATL' in 2006 and with 'ANS' in all other years (see median file 'Data/04_dat_medians.rds' produced by script 04)    
+- We leave this fix as it is - i.e., remove 2006 from this series (see Appendix 3 in script 03)     
+
+```{r}
+
+sel <- with(dat_series_trend, id  == "FRB65" & n_years == 1)
+sum(sel)
+cat("Remove", sum(sel), "rows with one-year time series (FRB65) \n")
+
+dat_series_trend <- dat_series_trend[!sel,]
+
+```
+
+
+
 ### Save  
 ```{r}
 
