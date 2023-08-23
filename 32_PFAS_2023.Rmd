@@ -25,6 +25,9 @@ library(forcats)       # easy ordering of levels in a factor
 library(RColorBrewer)  
 library(glue)
 
+library(agricolae)
+
+
 ```
 
 ## 2. Read ICES data
@@ -63,13 +66,14 @@ coltypes <- cols(
   # BotDepth = col_double()
 )
 
-df2_orig <- readr::read_tsv("Input_data/EMD and ICES DOME for MAR001 20230614/ICES_DOME_biota_20230601_1.txt", col_types = coltypes) %>%
+df2_orig <- readr::read_tsv("Input_data/From_Hans_2023/ICES_DOME_biota_20230601_1.txt", col_types = coltypes) %>%
   mutate(Year = year(Samplingtime), 
          Month = month(Samplingtime), 
          .before = everything())
 
 nrow(df2_orig)
-# 1539721
+# 1635146
+
 
 ```
 
@@ -347,13 +351,16 @@ gg2
 
 ### PFOS in cod  
 
+#### Boxplot, all years  
+
 ```{r}
 
 species <- "Cod"
 
-gg <- df_pfos %>%
-  filter(Common_name == species) %>%
-  ggplot(aes(x = MSFD_regionname, y = Conc_EQS_ratio, color = MSFD_regionname)) +
+df_pfos_cod <- df_pfos %>%
+  filter(Common_name == species)
+
+gg <- ggplot(df_pfos_cod, aes(x = MSFD_regionname, y = Conc_EQS_ratio, color = MSFD_regionname)) +
   geom_hline(yintercept = 1) +
   geom_boxplot() +
   scale_color_manual(values = region_colors) +
@@ -370,6 +377,132 @@ ggsave(fn, gg, width = 8, height = 5, dpi = 200)
 gg
 
 ```
+
+#### Boxplot, 2015-2016 and 2021 only    
+
+```{r}
+
+df_pfos_cod_sel <- df_pfos_cod %>%
+  mutate(
+    Years = case_when(
+      Year %in% 2015:2016 ~ "2015-2016",
+      Year %in% 2021 ~ "2021")
+    ) %>%
+  filter(!is.na(Years))
+
+gg <- ggplot(df_pfos_cod_sel, aes(x = MSFD_regionname, y = Conc_EQS_ratio, color = MSFD_regionname)) +
+  geom_hline(yintercept = 1) +
+  geom_boxplot() +
+  scale_color_manual(values = region_colors) +
+  scale_y_log10(labels = scales::label_number()) +
+  theme_bw() +
+  easy_rotate_labels("x", angle = -45) +
+  easy_remove_axes(which = "x", what = "title") +
+  labs(y = "Ratio concentration/EQS",
+       title = paste("PFOS in", tolower(species))) +
+  facet_grid(cols = vars(Years))
+
+#fn <- glue("Figures/2023/32_PFAS_EQSratio_{tolower(species)}.png")
+# ggsave(fn, gg, width = 8, height = 5, dpi = 200)
+
+gg
+
+```
+
+#### Data by year  
+```{r}
+
+df_pfos_cod %>%
+  count(Year, MSFD_regionname) %>%
+  ggplot(aes(Year, MSFD_regionname, fill = n)) +
+  geom_tile()
+
+```
+
+
+#### Test effect of region and year (ANOVA)    
+
+```{r}
+
+nrow(df_pfos_cod)
+
+df_pfos_cod <- df_pfos_cod %>%
+  mutate(log_Conc_EQS_ratio = log10(Conc_EQS_ratio))
+
+m0 <- lm(log_Conc_EQS_ratio ~ 1, data = df_pfos_cod)
+m1a <- lm(log_Conc_EQS_ratio ~ MSFD_regionname, data = df_pfos_cod)
+m1b <- lm(log_Conc_EQS_ratio ~ Year, data = df_pfos_cod)
+m2 <- lm(log_Conc_EQS_ratio ~ MSFD_regionname + Year, data = df_pfos_cod)
+cat("--------------------------------------------\n")
+cat("Null model -> Region -> Region + Year \n")
+cat("--------------------------------------------\n")
+anova(m0, m1a, m2, test = "F")
+
+cat("\n\n--------------------------------------------\n")
+cat("Null model -> Year -> Region + Year \n")
+cat("--------------------------------------------\n")
+anova(m0, m1b, m2, test = "F")
+
+
+```
+
+#### Test effect of region and year, 2015-2016 and 2021 only    
+
+```{r}
+
+df_pfos_cod_list <- list(
+  df_pfos_cod %>% filter(Year %in% 2015:2016),
+  df_pfos_cod %>% filter(Year %in% 2021)
+)
+
+names(df_pfos_cod_list) <- c("2015-2016", "2021")
+
+map_int(df_pfos_cod_list, nrow)
+
+for (i in 1:2){
+  
+  cat("\n==========\n", names(df_pfos_cod_list)[i], "\n==========\n")
+  
+  m0 <- lm(log_Conc_EQS_ratio ~ 1, data = df_pfos_cod_list[[i]])
+  m1a <- lm(log_Conc_EQS_ratio ~ MSFD_regionname, data = df_pfos_cod_list[[i]])
+  anova(m0, m1a, test = "F") %>% print()
+
+}
+
+
+```
+
+
+#### Region effect, post-hoc test  
+
+```{r}
+
+model <- aov(log_Conc_EQS_ratio ~ MSFD_regionname, data = df_pfos_cod)
+multcomp <-  HSD.test(model, "MSFD_regionname", alpha = 0.05)
+plot(multcomp)
+# par(mfrow=c(1,1), mar=c(3,10,2,3))
+# plot(multcomp, horiz=TRUE, las = 1, cex.names = 0.8, xlim = c(-1,0))
+
+```
+
+
+#### Region effect, post-hoc test, 2015-2016 and 2021 only  
+
+```{r}
+
+
+for (i in 1:2){
+  
+  # cat("\n==========\n", names(df_pfos_cod_list)[i], "\n==========\n")
+  
+  model <- aov(log_Conc_EQS_ratio ~ MSFD_regionname, data = df_pfos_cod_list[[i]])
+  multcomp <-  HSD.test(model, "MSFD_regionname", alpha = 0.05)
+  plot(multcomp, main = names(df_pfos_cod_list)[i])
+  
+}
+
+```
+
 
 ### PFOS in blue mussel  
 
