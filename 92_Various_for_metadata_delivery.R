@@ -81,10 +81,46 @@ ggsave("Figures/92_example_map_all_pointsonly.png", gg, width = 10, height = 9, 
 fn <- "Submitted/MAR001_status_trend_by_region.xlsx"
 readxl::excel_sheets(fn)
 
-dat_region_status <- readxl::read_excel(fn, sheet = "Status by parameter-region")  
-dat_region_trend <- readxl::read_excel(fn, sheet = "Trends by par-region, meta")  
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
+# Simple categorical trend + status (main data)
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
+
+fn <- "Data/07_dat_status_trend.rds"
+dat_status_trend <- readRDS(fn)
+
+# Delete one PCB118 outlier
+dat_status_trend <- dat_status_trend %>%
+  filter(!(id %in% "56.02833333_20.83333333" & PARAM %in% "CB118"))
+
+dat_region_status <- dat_status_trend %>%
+  count(PARAM, Region, Status)
+  # mutate(
+  # Status = case_when(
+  #   Status %in% 1 ~ "Low",
+  #   Status %in% 2 ~ "Moderate",
+  #   Status %in% 3 ~ "High"),
+  # Status = factor(Status, levels = c("Low", "Moderate", "High"))
+  # )
 
 
+#
+# Results of trend metaanalysis  
+#
+dat_region_trend <- readRDS("Data/06_meta_trends_region.rds")
+
+# Fix region name
+sel <- dat_region_trend$Region %in% "North-East Atlantic Ocean." 
+dat_region_trend$Region[sel] <- "North-East Atlantic Ocean"
+table(dat_region_trend$Region)
+
+# Change trend text
+dat_region_trend <- dat_region_trend %>%
+  mutate(
+    `Overall trend` = case_when(
+      `Overall trend` %in% "No sign. pattern" ~ "No change",
+      `Overall trend` %in% "Downward" ~ "Improvement",
+      `Overall trend` %in% "Upward" ~ "Detoriation"))
+      
 #
 # . Plot pies ----
 #
@@ -93,7 +129,7 @@ dat_region_trend <- readxl::read_excel(fn, sheet = "Trends by par-region, meta")
 # 'make_pie_from_colours' in 03_map_pie_functions.R
 
 
-make_pie <- function(data, xvar, yvar, cols = c("1"="green", "2"="blue", "3"="red")){
+make_pie <- function(data, xvar, yvar, cols = c("1"="lightgreen", "2"="orange", "3"="red2")){
   data$x <- factor(data[[xvar]])
   data$y <- data[[yvar]]
   ggplot(data, aes(x=1, y, fill = x)) + 
@@ -104,7 +140,6 @@ make_pie <- function(data, xvar, yvar, cols = c("1"="green", "2"="blue", "3"="re
 test <- dat_region_status %>%
   filter(Region == "Baltic" & PARAM == "HG")
 make_pie(test, xvar = "Status", yvar = "n")
-make_pie(test[2:3,], xvar = "Status", yvar = "n")
 
 #
 # All contaminants (not used)
@@ -135,7 +170,8 @@ df_pies <- c(
   set_names(c("x", "y"))
 
 # Add pies as a variable
-df_pies$pie <- pies[c(1,3,4)]   # skip numer 2, Black Sea
+# df_pies$pie <- pies[c(1,3,4)]   # skip numer 2, Black Sea
+df_pies$pie <- pies   # no Black Sea here
 
 # Sets size of pies
 df_pies$width = 12  
@@ -157,9 +193,9 @@ gg <- dat_status_trend %>%
     Status == 1 ~ "Low", 
     Status == 2 ~ "Moderate", 
     Status == 3 ~ "High")) %>% 
-  ggplot(aes(Longitude, Latitude, color = Concentrations)) +
+  ggplot(aes(Longitude, Latitude)) +
   annotation_map(very_simple_map, fill = "navajowhite2") +
-  geom_point() +
+  geom_point(aes(color = Concentrations)) +
   annotate("text", x = -Inf, y = Inf, label = "Mercury", hjust = -0.3, vjust = 1.3, size = 7) +  # 
   geom_subview(data=df_pies, aes(x=x, y=y, subview=pie, width=width, height=height)) +
   easy_remove_axes() +
@@ -176,12 +212,31 @@ dat_region_trend %>%
 
 
 #
-# . All pie chart + arrow maps  ----
+# . All pie charts + "arrow" maps  ----
+#
+# GAve up arrows - just made text instaed
 #
 
-table(dat_region_trend$PARAM)
+
+# debugonce(plot_contaminant)
+
 
 plot_contaminant("HG")
-
 plot_contaminant("BAP")
+# debugonce(plot_contaminant)
+plot_contaminant("BDE47")
+
+# Make all plots
+plots <- unique(dat_region_status$PARAM) %>% map(plot_contaminant)
+
+# Combine plots in a big plot (plot to screen)
+# cowplot::plot_grid(plotlist = plots, nrow = 3)
+
+# Combine plots in a big plot (plot to file)
+comb_plot <- cowplot::plot_grid(plotlist = plots)
+cowplot::save_plot(
+  filename = "Figures/92_map_all_contaminants.png",
+  plot = comb_plot, 
+  nrow = 3, base_asp = 2.4)
+
 
