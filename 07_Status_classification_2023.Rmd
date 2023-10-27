@@ -365,7 +365,7 @@ if (check > 0)
 dat_status_trend <- dat_series %>%
   left_join(
     dat_series_trend %>% 
-      select(Country, id, WoRMS_scientificName, PARAM, Slope, trend), , 
+      select(Country, id, WoRMS_scientificName, PARAM, Slope, trend), 
     by = c("Country", "id", "WoRMS_scientificName", "PARAM")) %>%
   mutate(
     trend = ifelse(is.na(trend), "Trend unknown", trend)) %>%
