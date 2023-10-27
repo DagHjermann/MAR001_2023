@@ -1,0 +1,187 @@
+
+
+library(maps)
+library(ggplot2)
+library(ggeasy)
+library(dplyr)
+library(purrr)
+library(mapdata)
+library(ggeasy)
+library(ggimage)    # geom_subview(), theme_transparent()
+
+source("92_Various_for_metadata_delivery_functions.R")
+
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+#
+# For dataset "Spatial extent" ----
+# :
+# Upper-, lower-, left- and right coordinates for the bounding box
+
+# Run first the start of script 01, until both EMODnet (df1a) and ICES data have been read
+#
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+
+# EMODnet
+range(df1a$Longitude)
+range(df1a$Latitude)
+# [1] -9.213 39.625
+# [1] 35.820 65.818
+# Upper = 65.818, Lower = 35.820 , Right = 39.625, Left = -9.213, 
+
+
+# ICES
+range(df2_orig$Longitude)
+range(df2_orig$Latitude)
+# [1] -41.75  54.45
+# [1] 36.56667 80.16667
+
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+#
+# For map example ----
+#
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+
+#
+# . Map with points per station ----
+#
+
+# Station data
+fn <- "Data/07_dat_status_trend.rds"
+dat_status_trend <- readRDS(fn)
+
+very_simple_map <- map_data("world")
+
+
+gg <- dat_status_trend %>%
+  mutate(Concentrations = case_when(
+    Status == 1 ~ "Low", 
+    Status == 2 ~ "Moderate", 
+    Status == 3 ~ "High")) %>% 
+  ggplot(aes(Longitude, Latitude, color = Concentrations)) +
+  annotation_map(very_simple_map, fill = "navajowhite2") +
+  geom_point() +
+  coord_map("lambert", parameters = c(2, 50)) +
+  facet_wrap(vars(PARAM)) +
+  easy_remove_axes() +
+  theme(
+    strip.text = element_text(size = 12),
+    legend.text = element_text(size = 14),
+    legend.title = element_text(size = 14)
+    ) 
+#  easy_text_size(which = "strip.text", size = 10)
+# ?ggeasy::.all_theme_els
+
+ggsave("Figures/92_example_map_all_pointsonly.png", gg, width = 10, height = 9, dpi = 200)
+
+
+#
+# Region data ----
+#
+
+fn <- "Submitted/MAR001_status_trend_by_region.xlsx"
+readxl::excel_sheets(fn)
+
+dat_region_status <- readxl::read_excel(fn, sheet = "Status by parameter-region")  
+dat_region_trend <- readxl::read_excel(fn, sheet = "Trends by par-region, meta")  
+
+
+#
+# . Plot pies ----
+#
+
+# Based on seksjon 318/Elveovervakning:
+# 'make_pie_from_colours' in 03_map_pie_functions.R
+
+
+make_pie <- function(data, xvar, yvar, cols = c("1"="green", "2"="blue", "3"="red")){
+  data$x <- factor(data[[xvar]])
+  data$y <- data[[yvar]]
+  ggplot(data, aes(x=1, y, fill = x)) + 
+    geom_bar(stat="identity", color = "black", size = 1) + coord_polar(theta="y") +
+    scale_fill_manual(values = cols) +
+    theme_void() + theme(legend.position="none") + theme_transparent()
+}
+test <- dat_region_status %>%
+  filter(Region == "Baltic" & PARAM == "HG")
+make_pie(test, xvar = "Status", yvar = "n")
+make_pie(test[2:3,], xvar = "Status", yvar = "n")
+
+#
+# All contaminants (not used)
+#
+pies <- dat_region_status %>%
+  split(~Region + PARAM) %>%
+  purrr::map(make_pie, xvar = "Status", yvar = "n")
+length(pies)
+
+#
+# . Map with pie charts ----
+# HG only
+#
+
+pies <- dat_region_status %>%
+  filter(PARAM == "HG") %>%
+  split(~Region) %>%
+  purrr::map(make_pie, xvar = "Status", yvar = "n")
+length(pies)
+
+# Make data set for pie center coordinates
+df_pies <- c(
+  28.92, 56.97,     # Baltic
+  8, 36,            # Mediterranean
+  0.1, 66.1) %>%    # `North-East Atlantic Ocean` 
+  matrix(ncol = 2, byrow = TRUE) %>%
+  as.data.frame() %>%
+  set_names(c("x", "y"))
+
+# Add pies as a variable
+df_pies$pie <- pies[c(1,3,4)]   # skip numer 2, Black Sea
+
+# Sets size of pies
+df_pies$width = 12  
+df_pies$height = 12   
+
+# Plot pies only
+df_range <- data.frame(x = c(-9, 35), y = c(28, 73))
+ggplot(data=df_range, aes(x, y)) + 
+  geom_blank() +
+  annotation_map(very_simple_map, fill = "sienna") +
+  geom_subview(data=df_pies, aes(x=x, y=y, subview=pie, width=width, height=height))
+# gg
+
+
+# Plot points + pies for HG
+gg <- dat_status_trend %>%
+  filter(PARAM == "HG") %>%
+  mutate(Concentrations = case_when(
+    Status == 1 ~ "Low", 
+    Status == 2 ~ "Moderate", 
+    Status == 3 ~ "High")) %>% 
+  ggplot(aes(Longitude, Latitude, color = Concentrations)) +
+  annotation_map(very_simple_map, fill = "navajowhite2") +
+  geom_point() +
+  annotate("text", x = -Inf, y = Inf, label = "Mercury", hjust = -0.3, vjust = 1.3, size = 7) +  # 
+  geom_subview(data=df_pies, aes(x=x, y=y, subview=pie, width=width, height=height)) +
+  easy_remove_axes() +
+  theme(panel.background = element_rect(fill = "azure"))
+gg
+
+ggsave("Figures/92_example_map_mercury_noarrows.png", width = 6, height = 4.5, dpi = 200)
+
+dat_region_trend %>%
+  filter(PARAM == "HG")  
+# PARAM Region                     Change_perc_10yr Change_perc_10yr_lo Change_perc_10yr_up `Overall trend` 
+# 1 HG    Baltic                                -24.3              -47.2                 8.66 No sign. pattern
+# 2 HG    North-East Atlantic Ocean.             10.8                1.07               21.4  Upward  
+
+
+#
+# . All pie chart + arrow maps  ----
+#
+
+table(dat_region_trend$PARAM)
+
+plot_contaminant("HG")
+
+plot_contaminant("BAP")
+
