@@ -606,6 +606,23 @@ plot_relclass_param("DDEPP", msfd_regions = TRUE)
 
 ## Trends table  
 
+```{r}
+
+dat_status_trend %>%
+  mutate(PARAM = factor(
+    PARAM, 
+    levels = c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118"))
+  ) %>%
+  tabyl(Trend) %>%
+  adorn_percentages("col") %>%
+  adorn_pct_formatting(digits = 1) %>%
+  adorn_ns() %>%
+  kable() %>%       # add region as caption  
+  kable_classic(full_width = F, html_font = "Arial Narrow") 
+
+```
+
+
 ### Overall 
 ```{r, echo=FALSE}
 
@@ -1100,10 +1117,14 @@ plot_slope_region("BAP")
 # Made higher up in this script
 tab_report <- readxl::read_excel("Figures/Trends_overall.xlsx")
 
+# Parameters
+
+params <- c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118")
+
 # Overall trends 
 trend_overall_meta <- meta_trends_overall %>%
   select(PARAM, Dummy, Change_perc_10yr, Change_perc_10yr_lo, Change_perc_10yr_up, `Overall trend`) %>%
-  filter(PARAM %in% unique(status_by_region$PARAM))
+  filter(PARAM %in% params)
 
 # Overall trends , reformat 1
 df1 <- trend_overall_meta %>%
