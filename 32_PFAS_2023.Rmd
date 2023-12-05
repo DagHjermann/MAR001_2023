@@ -8,7 +8,13 @@ output:
     toc: true  
     toc_float: true
 ---
-+
+
+## 0. Settings
+```{r}
+
+save_plots <- FALSE
+
+```
 
 
 ## 1. Packages    
@@ -106,7 +112,7 @@ df_taxon <- tribble(
   "Zoarces viviparus", "Fish, low-trophic", "Eelpout", 
   "Neogobius melanostomus", "Fish, benthic", "Round goby", 
   "Somateria mollissima", "Seabird", "Eider duck",
-  "Ursus maritimus", "Mammal", "Ice bear", 
+  "Ursus maritimus", "Mammal", "Polar bear", 
   "Phoca hispida", "Mammal", "Ringed seal", 
   "Globicephala melas", "Mammal", "Pilot whale", 
   "Ovis aries", "Terrestrial mammal", "Sheep",
@@ -326,7 +332,8 @@ gg <- ggplot(df_pfos, aes(x = Common_name, y = Conc_EQS_ratio, color = Species_t
   easy_remove_axes(which = "x", what = "title") +
   labs(y = "Ratio concentration/EQS")
 
-ggsave("Figures/2023/32_PFAS_EQSratio1.png", gg, width = 8, height = 5, dpi = 200)
+if (save_plots)
+  ggsave("Figures/2023/32_PFAS_EQSratio1.png", gg, width = 8, height = 5, dpi = 200)
 
 gg
 
@@ -343,7 +350,8 @@ gg
 gg2 <- gg + 
   facet_wrap(vars(MSFD_regionname))  
 
-ggsave("Figures/2023/32_PFAS_EQSratio2.png", gg2, width = 9, height = 8, dpi = 200)
+if (save_plots)
+  ggsave("Figures/2023/32_PFAS_EQSratio2.png", gg2, width = 9, height = 8, dpi = 200)
 
 gg2
 
@@ -372,7 +380,8 @@ gg <- ggplot(df_pfos_cod, aes(x = MSFD_regionname, y = Conc_EQS_ratio, color = M
        title = paste("PFOS in", tolower(species)))
 
 fn <- glue("Figures/2023/32_PFAS_EQSratio_{tolower(species)}.png")
-ggsave(fn, gg, width = 8, height = 5, dpi = 200)
+if (save_plots)
+  ggsave(fn, gg, width = 8, height = 5, dpi = 200)
 
 gg
 
@@ -525,7 +534,8 @@ gg <- df_pfos %>%
 
 
 fn <- glue("Figures/2023/32_PFAS_EQSratio_{tolower(species)}.png")
-ggsave(fn, gg, width = 8, height = 5, dpi = 200)
+if (save_plots)
+  ggsave(fn, gg, width = 8, height = 5, dpi = 200)
 
 gg
 
@@ -562,7 +572,8 @@ gg <- df_pfos %>%
   labs(y = "Ratio concentration/EQS",
        title = "PFOS in seabirds")
 
-ggsave("Figures/2023/32_PFAS_EQSratio_seabirds.png", gg, width = 8, height = 5, dpi = 200)
+if (save_plots)
+  ggsave("Figures/2023/32_PFAS_EQSratio_seabirds.png", gg, width = 8, height = 5, dpi = 200)
 
 gg
 
@@ -612,7 +623,8 @@ gg <- df_pfos %>%
   labs(y = "Ratio concentration/EQS",
        title = "PFOS in seabirds and mammals")
 
-ggsave("Figures/2023/32_PFAS_EQSratio_seabird_mammals.png", gg, width = 10, height = 5, dpi = 200)
+if (save_plots)
+  ggsave("Figures/2023/32_PFAS_EQSratio_seabird_mammals.png", gg, width = 10, height = 5, dpi = 200)
 
 gg
 
