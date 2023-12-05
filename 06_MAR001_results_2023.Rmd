@@ -9,6 +9,8 @@ output:
     toc_float: yes
   word_document:
     toc: yes
+editor_options: 
+  chunk_output_type: console
 ---
 
 
@@ -21,6 +23,7 @@ library(collateral)  # map_peacefully
 library(tidyr)
 library(ggplot2)
 library(ggeasy)
+library(ggdist)      # geom_dots (used in function 'plot_relclass_param2')
 library(janitor)     # tabyl + adorn_...
 library(knitr)       # kable
 library(kableExtra)  # kable_classic
@@ -72,7 +75,7 @@ dat_series_trend <- readRDS("Data/05_dat_series_trend.rds")
 # Threshold values   
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
 
-df_thresholds <- readxl::read_excel("Input_data/MGR_05_df_thresholds.xlsx", sheet = "MGR")
+df_thresholds <- readxl::read_excel("Thresholds/MGR_05_df_thresholds.xlsx", sheet = "MGR")
 
 if (FALSE){
   
@@ -146,7 +149,14 @@ table_status_region("Mediterranean")
 
 ```
 
+### Save  
+```{r}
 
+### SAVE ### 
+# saveRDS(meta_status_region, "Data/06_meta_status_region.rds")
+# saveRDS(meta_status_msfdregion, "Data/06_meta_status_msfdregion.rds")
+
+```
 
 ## Status by MSFD region {.tabset}  
 
@@ -445,24 +455,33 @@ plot_relclass_param("CB118", msfd_regions = TRUE)
 # Custom plot   
 gg <- plot_relclass_param("CB118", msfd_regions = TRUE)
 
+# Custom plot
+# Note: using plot_relclass_param2() instead of plot_relclass_param()  
+# - dotplot instead of jittered scatter plot
+gg <- plot_relclass_param2("CB118", msfd_regions = TRUE,
+                           binwidth = 0.15, overflow = "compress")
+
 gg2 <- gg +
   scale_y_continuous(
     limits = c(1,10.8),
     breaks = seq(0,10), 
     labels = c("", "0", "BAC", "EQS", paste0(2:8, "x EQS"))
   ) +
+  theme(panel.grid.minor.y = element_blank()) +
   geom_vline(aes(xintercept = 3.5)) +
   geom_vline(aes(xintercept = 6.5))
 gg2
 
 if (TRUE){
 
-  ggsave("Figures/Relative_class_CB118_by_MSFDregion.png", gg2, width = 9.5, height = 5, dpi = 400)
+  # Old version is named Relative_class_CB118_by_MSFDregion2.png", gg2, width = 9.5, height = 5, dpi = 400)
+  ggsave("Figures/Relative_class_CB118_by_MSFDregion2.png", gg2, width = 9.5, height = 5, dpi = 400)
   
 }
 
 
 ```
+
 
 #### Data for excel  
 ```{r}

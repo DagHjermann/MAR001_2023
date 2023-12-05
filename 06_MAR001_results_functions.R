@@ -584,8 +584,128 @@ plot_relclass_param <- function(param,
 }
 
 
+
 # table(dat_status_trend_relclass$Region) 
 # table(dat_status_trend_relclass$MSFD_region) %>% names()   
+
+
+#
+# Gets data used for relclass plot  
+# (just for testing)
+#
+plot_relclass_param_data <- function(param, 
+                                msfd_regions = FALSE,
+                                exclude_norway_regions = TRUE,
+                                get_boxplot_only = FALSE,
+                                get_points_only = FALSE){
+  
+  data_for_plot <- dat_status_trend_relclass %>%
+    filter(PARAM %in% param) %>%
+    as.data.frame()
+  
+  if (msfd_regions)
+    data_for_plot <- data_for_plot %>%
+      mutate(Region = MSFD_region)
+  
+  if (exclude_norway_regions)
+    data_for_plot <- data_for_plot %>%
+      filter(!Region %in% c("Norwegian Sea", "Barents Sea", "Icelandic Ocean"))
+  
+  above_plot_border <- data_for_plot %>%
+    filter(Relclass > 10) %>%
+    count(Region) %>%
+    mutate(Relclass = 10.1, labeltext = paste("Over 10:\n", n, "stations"))
+  
+  result <- data_for_plot %>% filter(Relclass <= 10)
+  result
+  
+}
+
+
+if (FALSE){
+  # TEST
+  df1 <- plot_relclass_param_data("CB118", msfd_regions = TRUE)
+  ggplot(df1, aes(x = Region, y = Relclass)) +
+    geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) 
+  
+}
+
+#
+# plot_relclass_param2   
+# - as plot_relclass_param, but using geom_dots instead of geom_jitter
+# - note new parameters binwidth and overflow
+#   (see https://mjskay.github.io/ggdist/articles/dotsinterval.html)
+
+plot_relclass_param2 <- function(param, 
+                                msfd_regions = FALSE,
+                                exclude_norway_regions = TRUE,
+                                get_boxplot_only = FALSE,
+                                get_points_only = FALSE,
+                                binwidth = 0.12, overflow = "compress"){
+  
+  data_for_plot <- dat_status_trend_relclass %>%
+    filter(PARAM %in% param) %>%
+    mutate(
+      Measurement = factor(
+        ifelse(Below_LOQ, "Under LOQ", "Quantified"),
+        levels = c("Quantified", "Under LOQ"))
+      ) %>%
+    as.data.frame()
+  
+  if (msfd_regions)
+    data_for_plot <- data_for_plot %>%
+      mutate(Region = MSFD_region)
+  
+  if (exclude_norway_regions)
+    data_for_plot <- data_for_plot %>%
+      filter(!Region %in% c("Norwegian Sea", "Barents Sea", "Icelandic Ocean"))
+  
+  above_plot_border <- data_for_plot %>%
+    filter(Relclass > 10) %>%
+    count(Region) %>%
+    mutate(Relclass = 10.1, labeltext = paste("Over 10:\n", n, "stations"))
+  
+  gg <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
+               aes(x = Region, y = Relclass)) +
+    geom_boxplot(outlier.shape = NA) +
+    # geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
+    geom_dots(aes(fill = Status, shape = Measurement), color = "black", linewidth = 0.35, side = "both", 
+              binwidth = binwidth, overflow = overflow) +
+    scale_shape_manual(values = c(21,25)) +
+    scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red")) +
+    scale_y_continuous(breaks = 0:10, minor_breaks = NULL, limits = c(0,10.8)) + 
+    geom_text(data = above_plot_border, aes(label = labeltext), 
+              vjust = -0.3, size = rel(3), lineheight = 0.9) +
+    # guides(shape = "none") + 
+    labs(y = "Relative status class") +
+    theme_bw() 
+  
+  if (msfd_regions){      
+    gg <- gg +
+      theme(axis.text.x = element_text(angle = -35, hjust = 0)) +
+      labs(x = "MSFD region")
+  }
+  
+  # get_boxplot_only and get_points_only are only for extracting plot data
+  if (get_boxplot_only){
+    gg <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
+                 aes(x = Region, y = Relclass)) +
+      geom_boxplot(outlier.shape = NA)
+  }
+  if (get_points_only){
+    gg <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
+                 aes(x = Region, y = Relclass)) +
+      geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
+      scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red"))
+  }  
+  gg
+  
+}
+
+
+# table(dat_status_trend_relclass$Region) 
+# table(dat_status_trend_relclass$MSFD_region) %>% names()   
+
 
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
