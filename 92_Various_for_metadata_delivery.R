@@ -121,6 +121,41 @@ dat_region_trend <- dat_region_trend %>%
       `Overall trend` %in% "Downward" ~ "Improvement",
       `Overall trend` %in% "Upward" ~ "Detoriation"))
       
+
+#
+# . Save excel data for EEA ----
+#
+
+data_map_points <- dat_status_trend %>%
+  select(PARAM, Region, Longitude, Latitude, Trend, Status) %>%
+  mutate(
+    `Point shape (trend)` = case_when(
+      Trend %in% "Decrease" ~ "triangle pointing down",
+      Trend %in% "IIncrease" ~ "triangle pointing up",
+      TRUE ~ "round")
+    ) %>%
+  left_join(
+    data.frame(Status = 1:3, Point_color = c("green", "orange", "red")), 
+    relationship = "many-to-one") %>%
+  rename(`Point color (status)` = Point_color)
+
+data_map_pies <- dat_region_status_trend <- dat_region_status %>%
+  left_join(
+    data.frame(Status = 1:3, Pie_color = c("green", "orange", "red")), 
+    relationship = "many-to-one")
+
+data_map_pietext <- dat_region_trend %>% 
+  select(PARAM, Region, `Overall trend`) 
+
+writexl::write_xlsx(
+  list(
+    points = data_map_points,
+    pies = data_map_pies,
+    pie_text = data_map_pietext,
+    info = data.frame(info = "One map per 'PARAM'")),
+  "Figures/2023/Maps_by_parameter_plotdata.xlsx"
+)
+
 #
 # . Plot pies ----
 #
@@ -140,14 +175,6 @@ make_pie <- function(data, xvar, yvar, cols = c("1"="lightgreen", "2"="orange", 
 test <- dat_region_status %>%
   filter(Region == "Baltic" & PARAM == "HG")
 make_pie(test, xvar = "Status", yvar = "n")
-
-#
-# All contaminants (not used)
-#
-pies <- dat_region_status %>%
-  split(~Region + PARAM) %>%
-  purrr::map(make_pie, xvar = "Status", yvar = "n")
-length(pies)
 
 #
 # . Map with pie charts ----
