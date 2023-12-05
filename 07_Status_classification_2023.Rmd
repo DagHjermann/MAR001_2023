@@ -163,6 +163,7 @@ dat_status_1 <- dat_medians %>%
     perc90_value_ww = quantile(Value_ww, 0.9, type = 8, na.rm = TRUE), 
     perc90_value_dw = quantile(Value_dw, 0.9, type = 8, na.rm = TRUE), 
     perc90_value_fw = quantile(Value_fw, 0.9, type = 8, na.rm = TRUE), 
+    Below_LOQ = mean(Flag %in% "<") > 0.5,
     .groups = "drop"
   ) %>%
   ungroup() %>%
@@ -374,7 +375,7 @@ dat_status_trend <- dat_series %>%
       filter(status_analysis %in% "Yes") %>%
       select(Country, id, WoRMS_scientificName, PARAM,
              Status, status_analysis,
-             perc90_value_ww, perc90_value_dw, perc90_value_fw, Group, 
+             perc90_value_ww, perc90_value_dw, perc90_value_fw, Below_LOQ, Group, 
              Thresh1, Thresh1_basis, Thresh2, Thresh2_basis, Th1, Th2), 
     by = c("Country", "id", "WoRMS_scientificName", "PARAM")) %>%
   rename(Trend = trend) %>%
