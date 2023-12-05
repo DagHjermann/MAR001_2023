@@ -121,7 +121,6 @@ dat_status_trend %>%
   kable() %>%
   kable_classic(full_width = F, html_font = "Arial Narrow")
 
-
 ```
 
 ## Status by region {.tabset}  
@@ -501,17 +500,43 @@ if (TRUE){
                 "Baltic Sea")
   
   plotdata_boxplot <- dd %>%
-    select(x, ymin, lower, middle, upper, ymax, new_width) %>%
-    mutate(MSFD_region = x_labels[x], .before = 1)
-
+    select(x, ymin, lower, middle, upper, ymax) %>%
+    rename(
+      `lower end of bar`= ymin,
+      `lower end of box`= lower,
+      `line inside box`= middle,
+      `upper end of box`= upper,
+      `upper end of bar`= ymax) %>%
+    mutate(x = x_labels[x], .before = 1)
+  
+  # point colours
+  plotdata_colors <- data.frame(
+    Status = 1:3,
+    colour = c("green", "yellow", "red")
+  )
+  
   # point data
   gg2 <- plot_relclass_param("CB118", msfd_regions = TRUE, get_points_only = TRUE)
   plotdata_points <- dat_status_trend_relclass %>%
     filter(PARAM %in% "CB118") %>%
     select(MSFD_region, Relclass, Status) %>%
-    rename(x_label = MSFD_region, y = Relclass, colour = Status) %>%
-    mutate(x = as.numeric(x_label)) %>%
-    as.data.frame()
+    mutate(Status = as.numeric(Status)) %>%
+    left_join(plotdata_colors) %>%
+    rename(x = MSFD_region, y = Relclass) %>%
+    select(x, y, colour)
+  
+  plotdata_yscale <- data.frame(
+    y = 0:9,
+    y_label = c("0", "BAC", "EQS", paste0(2:8, "x EQS"))
+  )
+
+  # Save to excel
+  # Manual changes: change column with, reduce number of digits
+  writexl::write_xlsx(
+    list(points = plotdata_points, 
+         boxplot = plotdata_boxplot, `y scale` = plotdata_yscale),
+    "Figures/2023/PCB118_by_MSFDregion_plotdata.xlsx" 
+  )
 
   if (FALSE){
     
@@ -540,13 +565,7 @@ if (TRUE){
     labels = c("", "0", "BAC", "EQS", paste0(2:8, "x EQS"))
   )
 
-  #
-  # Plot data saved to this excel file:
-  # "Figures/06_Relative_class_CB118_by_MSFDregion_plotdata.xlsx" 
-  # - this is done a bit further down in this script, in 
-  #   'Trend meta-analysis by MSFD region' - CB118
-  #
-  
+
 }
 
 
@@ -1250,6 +1269,8 @@ map_param("DDEPP")
 ```{r, echo=FALSE, fig.width = 9, fig.height = 7}
 map_param("CB118")
 ```
+
+
 ## Combined map  
 
 ### Test a single map    
