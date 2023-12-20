@@ -590,47 +590,6 @@ plot_relclass_param <- function(param,
 
 
 #
-# Gets data used for relclass plot  
-# (just for testing)
-#
-plot_relclass_param_data <- function(param, 
-                                msfd_regions = FALSE,
-                                exclude_norway_regions = TRUE,
-                                get_boxplot_only = FALSE,
-                                get_points_only = FALSE){
-  
-  data_for_plot <- dat_status_trend_relclass %>%
-    filter(PARAM %in% param) %>%
-    as.data.frame()
-  
-  if (msfd_regions)
-    data_for_plot <- data_for_plot %>%
-      mutate(Region = MSFD_region)
-  
-  if (exclude_norway_regions)
-    data_for_plot <- data_for_plot %>%
-      filter(!Region %in% c("Norwegian Sea", "Barents Sea", "Icelandic Ocean"))
-  
-  above_plot_border <- data_for_plot %>%
-    filter(Relclass > 10) %>%
-    count(Region) %>%
-    mutate(Relclass = 10.1, labeltext = paste("Over 10:\n", n, "stations"))
-  
-  result <- data_for_plot %>% filter(Relclass <= 10)
-  result
-  
-}
-
-
-if (FALSE){
-  # TEST
-  df1 <- plot_relclass_param_data("CB118", msfd_regions = TRUE)
-  ggplot(df1, aes(x = Region, y = Relclass)) +
-    geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) 
-  
-}
-
-#
 # plot_relclass_param2   
 # - as plot_relclass_param, but using geom_dots instead of geom_jitter
 # - note new parameters binwidth and overflow
