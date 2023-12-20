@@ -89,6 +89,7 @@ if (FALSE){
   }
 
 ```
+
 ```{r}
 
 # sequence in plots   
@@ -446,6 +447,11 @@ plot_relclass_param("DDEPP")
 ### CB118  
 ```{r, fig.width=9, fig.height=6}
 
+# Set status to NA if the measurement is under LOQ (unless it's also Status = 1)
+sel <- with(dat_status_trend_relclass, Below_LOQ & Status  %in% c("2", "3"))
+mean(sel, na.rm = TRUE)
+dat_status_trend_relclass$Status[sel] <- as.character(NA)
+
 set.seed(43)
 
 # Straight plot
@@ -492,14 +498,14 @@ if (TRUE){
   # Save plot data for EEA (start - writing excel is further down)
   #
   # boxplot data
-  gg2 <- plot_relclass_param("CB118", msfd_regions = TRUE, get_boxplot_only = TRUE)
-  dd <- layer_data(gg2)
+  gg_boxplot <- plot_relclass_param2("CB118", msfd_regions = TRUE, get_boxplot_only = TRUE)
+  dd_boxplot <- layer_data(gg_boxplot)
   
   x_labels <- c("Adriatic Sea", "Ionia Sea and central Med.", "Western Mediterranean Sea", 
                 "Greater North Sea", "Celtic Seas", "Bay of Biscay / Iberian coast", 
                 "Baltic Sea")
   
-  plotdata_boxplot <- dd %>%
+  plotdata_boxplot <- dd_boxplot %>%
     select(x, ymin, lower, middle, upper, ymax) %>%
     rename(
       `lower end of bar`= ymin,
@@ -507,7 +513,14 @@ if (TRUE){
       `line inside box`= middle,
       `upper end of box`= upper,
       `upper end of bar`= ymax) %>%
-    mutate(x = x_labels[x], .before = 1)
+    mutate(
+      x = as.numeric(x),
+      x_label = x_labels[x], .before = 1)
+  
+  # test <- layer_data(gg2, 2)
+  # nrow(test)
+  # ggplot(test, aes(x, y, shape = factor(shape))) +
+  #   geom_point()
   
   # point colours
   plotdata_colors <- data.frame(
@@ -520,10 +533,21 @@ if (TRUE){
   plotdata_points <- dat_status_trend_relclass %>%
     filter(PARAM %in% "CB118") %>%
     select(MSFD_region, Relclass, Status) %>%
-    mutate(Status = as.numeric(Status)) %>%
+    mutate(
+      x = as.numeric(MSFD_region),
+      Status = as.numeric(Status)) %>%
     left_join(plotdata_colors) %>%
-    rename(x = MSFD_region, y = Relclass) %>%
-    select(x, y, colour)
+    mutate(
+      colour = case_when(
+        is.na(colour) ~ "grey",
+        TRUE ~ colour),
+      shape = case_when(
+        Below_LOQ ~ "triangle pointing down",
+        TRUE ~ "circle")
+    ) %>%
+    rename(x_label = MSFD_region, 
+           y = Relclass) %>%
+    select(x, x_label, y, colour)
   
   plotdata_yscale <- data.frame(
     y = 0:9,
