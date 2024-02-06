@@ -131,7 +131,7 @@ data_map_points <- dat_status_trend %>%
   mutate(
     `Point shape (trend)` = case_when(
       Trend %in% "Decrease" ~ "triangle pointing down",
-      Trend %in% "IIncrease" ~ "triangle pointing up",
+      Trend %in% "Increase" ~ "triangle pointing up",
       TRUE ~ "round")
     ) %>%
   left_join(
