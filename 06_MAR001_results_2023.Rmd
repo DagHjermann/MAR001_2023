@@ -485,6 +485,93 @@ if (TRUE){
 }
 
 
+
+```
+
+#### Get point data  
+
+* With exact x values for each point  
+* Using 'geom_dotplot' (from ggplot2) instead of geom_dots (from ggdist) in order for 'ggplot_build' to work 
+
+```{r}
+
+#
+# make 'data_for_plot', using code from 'plot_relclass_param2'  
+#
+data_for_plot <- dat_status_trend_relclass %>%
+  filter(PARAM %in% "CB118") %>%
+  mutate(
+    Measurement = factor(
+      ifelse(Below_LOQ, "Under LOQ", "Quantified"),
+      levels = c("Quantified", "Under LOQ"))
+  ) %>%
+  as.data.frame()
+
+data_for_plot <- data_for_plot %>%
+  mutate(Region = MSFD_region)
+
+data_for_plot <- data_for_plot %>%
+  filter(!Region %in% c("Norwegian Sea", "Barents Sea", "Icelandic Ocean"))
+
+#
+# make simple plot (points only)  
+#
+gg3 <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
+              aes(x = factor(Region), y = Relclass)) +
+  # Using 'geom_dotplot' (from ggplot2) instead of geom_dots (from ggdist) in order for 'ggplot_build' to work
+  geom_dotplot(aes(colour = Measurement, fill = addNA(Status)), 
+               binaxis = "y", stackdir = "center", binwidth = 0.15)
+#  gg3
+
+#
+# use ggplot_build to get the data for that plot
+# - this contains the columns 'x' (1,2,3...) and stackpos (1, -0.5, 0, 0.5, 1, ...) 
+# - see plot example below for how rto use x and stackpos
+
+a <- ggplot_build(gg3)$data[[1]]
+
+#
+# test plot
+#
+ggplot(a, aes(x + stackpos*0.05, y, shape = colour, colour = fill)) + 
+  geom_point() +
+  scale_shape_manual(values = c(25,21)) 
+
+if (FALSE){
+  
+  #
+  # for writing excel
+  #
+  
+  a2 <- a %>%
+    mutate(
+      Measurement = factor(
+        ifelse(colour == "#00BFC4", "Under LOQ", "Quantified"),
+        levels = c("Quantified", "Under LOQ")),
+      Status = case_when(
+        fill == "#F8766D" ~ "1",
+        fill == "#00BA38" ~ "2",
+        fill == "#619CFF" ~ "3",
+        fill == "grey50" ~ "NA"),
+      Colour = case_when(
+        fill == "#F8766D" ~ "green",
+        fill == "#00BA38" ~ "yellow",
+        fill == "#619CFF" ~ "red",
+        fill == "grey50" ~ "grey")
+    ) %>%
+    select(x, y, stackpos, Measurement, Status, Colour)
+  
+  ggplot(a2, aes(x + stackpos*0.05, y, shape = Measurement, colour = Status)) + 
+    geom_point() +
+    scale_shape_manual(values = c(21,25)) 
+  
+  a2 %>%
+    as.data.frame() %>%
+    writexl::write_xlsx("Figures/2023/PCB118_by_MSFDregion_dots_fromR.xlsx") 
+      
+  
+}
+  
 ```
 
 
