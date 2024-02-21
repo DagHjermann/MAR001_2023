@@ -338,6 +338,64 @@ if (save_plots)
 gg
 
 ```
+#### Get plot data  
+
+```{r}
+ggplot_build(gg) %>% str(1)
+ggplot_build(gg)$data %>% str(1)
+ggplot_build(gg)$data[[2]]
+
+a <- layer_data(gg, i = 2)
+str(a, 1)
+
+a2 <- a %>%
+  mutate(colour = fct_inorder(colour)) %>%
+  mutate(Common_name = levels(df_pfos$Common_name)[x],
+         Common_name = fct_inorder(Common_name))
+
+# Boxes
+a2_boxes <- a2 %>% 
+  select(x, Common_name, ymin, lower, middle, upper, ymax, colour)
+
+# - numbers on x axis
+ggplot(a2_boxes, aes(x, middle, color = colour)) +
+  geom_point(pch = 15) +
+  geom_point(aes(y = ymin), pch = 1) +
+  geom_point(aes(y = lower), pch = 6) +
+  geom_point(aes(y = upper), pch = 2) +
+  geom_point(aes(y = ymax), pch = 1) +
+  scale_color_manual(values = levels(a2$colour))
+
+# - names on x axis
+ggplot(a2_boxes, aes(Common_name, middle, color = colour)) +
+  geom_point(pch = 15) +
+  geom_point(aes(y = ymin), pch = 1) +
+  geom_point(aes(y = lower), pch = 6) +
+  geom_point(aes(y = upper), pch = 2) +
+  geom_point(aes(y = ymax), pch = 1) +
+  scale_color_manual(values = levels(a2$colour)) +
+  easy_rotate_labels("x", angle = -45) 
+
+# Outliers  
+a2_outliers <- a2 %>% 
+  select(Common_name, x, colour, outliers) %>%
+  tidyr::unnest(cols = c(outliers))
+ggplot(a2_outliers, aes(x, outliers, color = colour)) +
+  geom_point(pch = 15) +
+  scale_color_manual(values = levels(a2$colour))
+
+writexl::write_xlsx(
+  list(points = a2_outliers,
+       boxplot = a2_boxes %>% 
+         rename(
+           `Lower end of whiskers` = ymin,
+           `Upper end of whiskers` = ymax)),
+  "Figures/2023/PFOS_signal_data.xlsx" 
+)
+
+
+```
+
 
 #### With regions  
 
