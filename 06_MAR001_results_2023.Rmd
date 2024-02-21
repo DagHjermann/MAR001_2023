@@ -922,6 +922,9 @@ table_trends_msfdregion("Norwegian Sea")
 # Perform meta-analysis
 #
 
+# Overall trend, across regions/MSFD regions  
+# All substances (not only the 9 shown in map)
+
 meta_trends_overall <- dat_series_trend %>%
   filter(!is.na(Slope)) %>%
   mutate(Dummy = 1) %>%
@@ -942,6 +945,8 @@ meta_trends_overall <- dat_series_trend %>%
       TRUE ~ "No sign. pattern")
   ) 
 
+# table(meta_trends_overall$PARAM)
+
 meta_trends_region <- dat_series_trend %>%
   filter(!is.na(Slope)) %>%
   nest_by(PARAM) %>% # str(2)
@@ -960,6 +965,8 @@ meta_trends_region <- dat_series_trend %>%
       CI_lower > 0 ~ "Upward",
       TRUE ~ "No sign. pattern")
   ) 
+
+# table(meta_trends_region$PARAM)
 
 meta_trends_msfdregion <- dat_series_trend %>%
   filter(!is.na(Slope)) %>%
@@ -992,6 +999,8 @@ meta_trends_msfdregion <- dat_series_trend %>%
       MSFD_region2 %in% "BAR" ~ "Barents Sea",
       MSFD_region2 %in% "ICE" ~ "Icelandic Ocean")
   ) 
+
+# table(meta_trends_msfdregion$PARAM)
 
 col_scale <- c("Downward"  = "green3", "Upward" = "red", "No sign. pattern" = "black")
 
