@@ -338,6 +338,30 @@ if (save_plots)
 gg
 
 ```
+#### Get raw data for plot  
+
+```{r}
+
+df_pfos_for_plot <- df_pfos %>%
+  select(Common_name, Conc_EQS_ratio, Species_type)
+
+# Saved further down (next chunk)
+
+# Test
+gg <- ggplot(df_pfos_for_plot, aes(x = Common_name, y = Conc_EQS_ratio, color = Species_type)) +
+  geom_hline(yintercept = 1) +
+  geom_boxplot() +
+  scale_color_manual("Species group", values = species_type_colors) +
+  scale_y_log10(labels = scales::label_number()) +
+  theme_bw() +
+  easy_rotate_labels("x", angle = -45) +
+  easy_remove_axes(which = "x", what = "title") +
+  labs(y = "Ratio concentration/EQS")
+
+# gg
+
+```
+
 #### Get plot data  
 
 ```{r}
@@ -384,15 +408,25 @@ ggplot(a2_outliers, aes(x, outliers, color = colour)) +
   geom_point(pch = 15) +
   scale_color_manual(values = levels(a2$colour))
 
+```
+
+#### Save both types  
+
+```{r}
+
+# Save
 writexl::write_xlsx(
   list(points = a2_outliers,
        boxplot = a2_boxes %>% 
          rename(
            `Lower end of whiskers` = ymin,
-           `Upper end of whiskers` = ymax)),
+           `Upper end of whiskers` = ymax),
+       raw_data = df_pfos_for_plot,
+       colours = data.frame(
+         species_group = names(species_type_colors),
+         colors = species_type_colors)),
   "Figures/2023/PFOS_signal_data.xlsx" 
 )
-
 
 ```
 
