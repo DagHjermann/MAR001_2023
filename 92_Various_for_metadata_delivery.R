@@ -106,21 +106,35 @@ dat_region_status <- dat_status_trend %>%
 #
 # Results of trend metaanalysis  
 #
-dat_region_trend <- readRDS("Data/06_meta_trends_region.rds")
+dat_region_trend <- readRDS("Data/06_meta_trends_region.rds") %>%
+  select(-data)
+
+# check
+table(meta_trends_region$PARAM)
+# table(meta_trends_region$PARAM, meta_trends_region$Region)
 
 # Fix region name
 sel <- dat_region_trend$Region %in% "North-East Atlantic Ocean." 
 dat_region_trend$Region[sel] <- "North-East Atlantic Ocean"
+
+# check
 table(dat_region_trend$Region)
 
+# check
+table(dat_region_trend$`Overall trend`)
+
 # Change trend text
+# - and select only the substances we want  
 dat_region_trend <- dat_region_trend %>%
+  filter(PARAM %in% unique(dat_status_trend$PARAM)) %>%
   mutate(
     `Overall trend` = case_when(
       `Overall trend` %in% "No sign. pattern" ~ "No change",
       `Overall trend` %in% "Downward" ~ "Improvement",
       `Overall trend` %in% "Upward" ~ "Detoriation"))
       
+# check
+table(dat_region_trend$`Overall trend`)
 
 #
 # . Save excel data for EEA ----
