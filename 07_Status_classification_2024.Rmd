@@ -1,0 +1,674 @@
+---
+title: "07_Status_classification"
+author: "DHJ"
+date: "5 11 2021"
+output: 
+  html_document:
+    toc: true
+    toc-float: true  
+  github_document:
+    toc: true
+---
+
+**Classifies current levels according to status**  
+
+* Also adds trend data to a common file   
+* The criteria used for classification is that time series that did not have at least 3 years of data since 2010  
+    - Note: for the first version of the assessment, this criteria was not implemented properly   
+    - This was corrected on 2022-06-17 (commit 1426b98)   
+    - For comparison, the old saved file from this script was saved as '07_dat_status_trend_BEFORE_UPDATE_2022-06-17.rds'  
+    - For comparison, this is used in the result file '06_MAR001_results_2021_BEFORE_UPDATE_2022-06-17.Rmd'  
+
+
+
+## 1. Packages    
+```{r, message=FALSE, warning=FALSE, results='hide'}
+
+library(dplyr)
+library(purrr)
+library(tidyr)
+library(ggplot2)
+library(ggeasy)
+# library(lubridate)
+library(forcats)
+
+
+# If package maps is loaded, unload it (messes up purrr::map)
+if ("maps" %in% (.packages()))
+  detach("package:maps", unload=TRUE)
+
+
+```
+
+
+## 2. Data   
+*  Thresholds are at least partly from  
+https://dome.ices.dk/ohat/trDocuments/2021/help_ac_biota_contaminants.html   
+```{r}
+
+### Medians (main data)
+fn <- "Data/04_dat_medians.rds"
+dat_medians <- readRDS(fn) %>%
+  filter(Value > 0) %>%                      # remove zeros (due to EMODnet data < LOQ)
+  mutate(
+    Log_value = log10(Value),         # log10-transformed values will be used
+    Region = case_when(
+      MSFD_region %in% "BAL" ~ "Baltic",
+      MSFD_region %in% c("MWE","MAD","MIC") ~ "Mediterranean",
+      MSFD_region %in% "BLK" ~ "Black Sea",
+      TRUE ~ "North-East Atlantic Ocean")
+    )
+cat("Medians updated: \n")
+print(file.info(fn)[1, "mtime"])
+
+# Data (for dry weight)  
+dat_ind <- readRDS("Data/03_dat_7.rds")
+
+# regression results  
+fn <- "Data/05_dat_series_trend.rds"
+dat_series_trend <- readRDS(fn)
+cat("Regressions updated: \n")
+print(file.info(fn)[1, "mtime"])
+
+### Threshold values   
+df_thresholds <- readxl::read_excel("Thresholds/MGR_05_df_thresholds.xlsx", sheet = "MGR")
+
+
+```
+
+### Make metadata 'dat_series'     
+```{r}
+
+dat_coordinates <- dat_ind %>%
+  group_by(id) %>%
+  filter(!is.na(Longitude)) %>%
+  summarise(
+    across(c(Longitude, Latitude), median), .groups = "drop")
+
+dat_series <- dat_medians %>%
+  group_by(Country, MSFD_region, Region, id, WoRMS_scientificName, PARAM, Dataset) %>%
+  summarise(
+    first_year = min(Year),
+    last_year = max(Year),
+    n_years = length(unique(Year)), .groups = "drop"
+  ) %>%
+  left_join(
+    dat_coordinates, by = "id"
+  )
+
+ggplot(dat_series, aes(last_year, n_years)) +
+  geom_bin2d()
+
+dat_series %>%
+  xtabs(~(last_year > 2015) + (n_years >= 5), .)
+
+```
+
+## 3. Criteria  
+
+```{r}
+
+min_year <- 2010  
+min_no_years_except_med <- 3  
+min_no_years_mediterr <- 1  
+
+metals <- c("ZN", "CU", "CD", "HG", "CR", "NI", "PB", "AS")
+oysters <- c("Crassostrea gigas", "Ostrea edulis")
+
+
+```
+
+
+## 4. Calculate status  
+
+### Create dat_status_1       
+
+- Percentiles use R type 8, recommended by Rob Hyndman. Hyndman, R. J. and Fan, Y. (1996) Sample quantiles in statistical packages, American Statistician 50, 361–365. doi: 10.2307/2684934.  
+```{r}
+
+dat_drywt_med <- dat_ind %>%
+  group_by(Country, id, WoRMS_scientificName, Year) %>%
+  summarise(
+    DRYWT = median(DRYWT, na.rm = TRUE),
+    FATWT_species = median(FATWT_species, na.rm = TRUE),
+    .groups = "drop")
+
+
+dat_status_1 <- dat_medians %>%
+  filter(Year >= min_year) %>%
+  left_join(dat_drywt_med, by = c("Country", "id", "WoRMS_scientificName", "Year")) %>% # View 
+  mutate(
+    BASIS = case_when(
+      PARAM %in% metals ~ "D",
+      !PARAM %in% metals ~ "W"),
+    Value = 10^Log_value,
+    Value_ww = case_when(
+      BASIS == "D" ~ Value*(0.01*DRYWT),
+      BASIS == "W" ~ Value),
+    Value_dw = case_when(
+      BASIS == "D" ~ Value,
+      BASIS == "W" ~ Value/(0.01*DRYWT)),
+    Value_fw = case_when(
+      BASIS == "D" ~ Value/(0.01*FATWT_species)*(0.01*DRYWT),
+      BASIS == "W" ~ Value/(0.01*FATWT_species))
+  ) %>%
+  group_by(Country, MSFD_region, id, Dataset, WoRMS_scientificName, PARAM) %>%
+  summarise(
+    n_years = length(unique(Year)),
+    median_value = median(Value, na.rm = TRUE), 
+    median_value_ww = median(Value_ww, na.rm = TRUE), 
+    median_value_dw = median(Value_dw, na.rm = TRUE), 
+    median_value_fw = median(Value_fw, na.rm = TRUE), 
+    perc90_value = quantile(Value, 0.9, type = 8, na.rm = TRUE), 
+    perc90_value_ww = quantile(Value_ww, 0.9, type = 8, na.rm = TRUE), 
+    perc90_value_dw = quantile(Value_dw, 0.9, type = 8, na.rm = TRUE), 
+    perc90_value_fw = quantile(Value_fw, 0.9, type = 8, na.rm = TRUE), 
+    Below_LOQ = mean(Flag %in% "<") > 0.5,
+    .groups = "drop"
+  ) %>%
+  ungroup() %>%
+  mutate(
+    status_analysis = case_when(
+      MSFD_region %in% c("MAD", "MAL", "MIC", "MWE") & n_years >= min_no_years_mediterr ~ "Yes",
+      MSFD_region %in% c("MAD", "MAL", "MIC", "MWE") & n_years < min_no_years_mediterr ~ "No",
+      n_years >= min_no_years_except_med ~ "Yes",
+      n_years <= min_no_years_except_med ~ "No",
+      TRUE ~ "No"
+    )
+  )
+
+```
+
+
+
+### dat_status_2
+```{r}
+
+df_bivalve_dryweight <- readRDS("Data/03_df_bivalve_dryweight.rds")
+
+dat_status_2 <- dat_status_1 %>%
+  mutate(
+    BASIS = case_when(
+      PARAM %in% metals ~ "D",
+      !PARAM %in% metals ~ "W"
+    ),
+    Group = ifelse(WoRMS_scientificName %in% oysters, "Oyster", "Mussel")
+  ) %>%
+  left_join(
+    df_thresholds, by = c("PARAM", "Group")) %>%
+  left_join(
+    df_bivalve_dryweight, by = c("WoRMS_scientificName")) %>% 
+  mutate(
+    Status = case_when(
+      Thresh1_basis %in% "W" & perc90_value_ww < Thresh1 ~ 1,
+      Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & is.na(Thresh2_basis) ~ 2,
+      Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww < Thresh2 ~ 2,
+      Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww >= Thresh2 ~ 3,
+      Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw < Thresh2 ~ 3,
+      Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw >= Thresh2 ~ 3,
+      Thresh1_basis %in% "D" & perc90_value_dw < Thresh1 ~ 1,
+      Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & is.na(Thresh2_basis) ~ 2,
+      Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww < Thresh2 ~ 2,
+      Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww >= Thresh2 ~ 3,
+      Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw < Thresh2 ~ 2,
+      Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw >= Thresh2 ~ 3
+      )
+  ) 
+
+
+xtabs(~PARAM + Status, dat_status_2)
+
+param <- "HG"
+cat("\nStatus for", param, ":\n")
+xtabs(~Country + Status, dat_status_2 %>% filter(PARAM %in% param))
+  
+if (FALSE){
+  # for sensibility check
+  dat_status_2 %>% distinct(PARAM, BASIS, Thresh1, Thresh1_basis, Thresh1_as) 
+  dat_status_2 %>% distinct(PARAM, BASIS, Thresh2, Thresh2_basis, Thresh2_as) 
+}
+
+
+```
+
+### dat_status_3
+```{r}
+
+dat_status_3 <- dat_series %>%
+  left_join(dat_status_2, by = c("Country", "id", "WoRMS_scientificName", "PARAM"))
+
+xtabs(~addNA(Status), dat_status_3)
+
+
+```
+
+
+### For debugging  
+```{r}
+
+if (FALSE){
+  
+  test <- dat_status_2 %>% 
+    mutate(
+      Status2 = case_when(
+        Thresh1_basis %in% "W" & perc90_value_ww < Thresh1 ~ 1,
+        Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & is.na(Thresh2_basis) ~ 2,
+        Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww < Thresh2 ~ 3,
+        Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww >= Thresh2 ~ 4,
+        Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw < Thresh2 ~ 5,
+        Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw >= Thresh2 ~ 6,
+        Thresh1_basis %in% "D" & perc90_value_dw < Thresh1 ~ 7,
+        Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & is.na(Thresh2_basis) ~ 2,
+        Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww < Thresh2 ~ 8,
+        Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww >= Thresh2 ~ 9,
+        Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw < Thresh2 ~ 10,
+        Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw >= Thresh2 ~ 11,
+        TRUE ~ 12
+      )
+  ) 
+  
+  
+  # dry weight
+  param <- "CB118"
+  test %>%
+    filter(PARAM == param) %>%
+    select(PARAM, perc90_value_dw, perc90_value_ww, perc90_value_fw, 
+           Thresh1, Thresh1_basis, Thresh2, Thresh2_basis, Status, Status2) %>%
+    View(param)
+
+  param <- "CB118"
+  test %>%
+    filter(PARAM == param) %>%
+    ggplot(aes(perc90_value_dw, perc90_value_fw, color = factor(Status))) +
+    geom_point() +
+    scale_x_log10() +
+    scale_y_log10() +
+    geom_vline(aes(xintercept = 0.60)) +
+    geom_hline(aes(yintercept = 25))
+    
+  
+    }
+```
+
+
+
+### test plot 1, threshold level 1       
+```{r}
+
+source("06_MAR001_results_functions.R")
+
+# debugonce(plot_level_vs_species)
+plot_level_vs_species("CD", data = dat_status_3)
+plot_level_vs_species("CU", data = dat_status_3)
+plot_level_vs_species("PB", data = dat_status_3)
+plot_level_vs_species("HG", data = dat_status_3)
+plot_level_vs_species("HCB", data = dat_status_3)    
+plot_level_vs_species("HCHG", data = dat_status_3)    
+plot_level_vs_species("DDEPP", data = dat_status_3)
+plot_level_vs_species("CB118", data = dat_status_3)     
+plot_level_vs_species("BAP", data = dat_status_3)
+
+
+
+```
+
+### test plot 2: threshold level 2       
+```{r}
+
+# debugonce(plot_level_vs_species)
+plot_level_vs_species("HG", threshold = 2, data = dat_status_3)
+plot_level_vs_species("HCB", threshold = 2, data = dat_status_3)  
+plot_level_vs_species("HCHG", threshold = 2, data = dat_status_3)  
+plot_level_vs_species("CB118", threshold = 2, data = dat_status_3)  
+
+# param <- "CB118"
+# dat_status_3 %>% filter(PARAM == param) %>% View(param)
+
+
+```
+
+### test plot 2   
+```{r}
+
+param <- "HCHG"
+
+dat_status_3 %>%
+  filter(PARAM == param) %>%    #  & Country == "Norway"
+  ggplot(aes(Longitude, Latitude, color = factor(Status))) +
+  geom_point() +
+  scale_color_manual(values = c(`1` = "blue", `2` = "green", `3` = "red"))
+
+```
+
+## 8. Combine status and trend    
+
+### Combine by joining
+- dat_series + result_trends + dat_status_2
+
+```{r, results='hold'}
+
+### dat_status_3
+
+names(dat_series) %>% paste(collapse = ", ")
+names(dat_series_trend) %>% paste(collapse = ", ")
+names(dat_status_2) %>% paste(collapse = ", ")
+
+#
+# Check 'dat_series_trend'  
+# 
+check <- dat_series_trend %>%
+  count(Country, id, WoRMS_scientificName, PARAM) %>%
+  filter(n > 1) %>%
+  nrow()
+if (check > 0)
+  stop("Check whether 'dat_series_trend' has unique rows")
+
+dat_status_trend <- dat_series %>%
+  left_join(
+    dat_series_trend %>% 
+      select(Country, id, WoRMS_scientificName, PARAM, Slope, trend), 
+    by = c("Country", "id", "WoRMS_scientificName", "PARAM")) %>%
+  mutate(
+    trend = ifelse(is.na(trend), "Trend unknown", trend)) %>%
+  left_join(
+    dat_status_2 %>%
+      filter(status_analysis %in% "Yes") %>%
+      select(Country, id, WoRMS_scientificName, PARAM,
+             Status, status_analysis,
+             perc90_value_ww, perc90_value_dw, perc90_value_fw, Below_LOQ, Group, 
+             Thresh1, Thresh1_basis, Thresh2, Thresh2_basis, Th1, Th2), 
+    by = c("Country", "id", "WoRMS_scientificName", "PARAM")) %>%
+  rename(Trend = trend) %>%
+  filter(!is.na(Status) & status_analysis %in% "Yes") %>%
+  mutate(
+    Region = case_when(
+      MSFD_region %in% "BAL" ~ "Baltic",
+      MSFD_region %in% c("MWE","MAD","MIC") ~ "Mediterranean",
+      MSFD_region %in% "BLK" ~ "Black Sea",
+      TRUE ~ "North-East Atlantic Ocean"
+    )
+  )
+  
+xtabs(~Status + Trend, dat_status_trend)
+
+
+```
+
+
+### Save  
+```{r}
+
+# Save backup with time stamp
+filename <- "Data/07_dat_status_trend.rds"
+filename_backup <- sub(".rds", paste0("_", lubridate::now(), ".rds"), filename, fixed = TRUE)
+filename_backup <- gsub(":", "-", filename_backup, fixed = TRUE)
+filename_backup <- gsub(" ", "_", filename_backup, fixed = TRUE)
+
+filename_backup
+file.copy(filename, filename_backup)
+
+# UNCOMMENT to save
+saveRDS(dat_status_trend, filename)
+
+# NOTE: version before the change on 2022-06-17 (commit 1426b98, see text at the top of this script)
+#   was saved as '07_dat_status_trend_BEFORE_UPDATE_2022-06-17.rds'  
+#   and used in a special version of 
+
+# Read back?
+# dat_status_trend <- readRDS("Data/07_dat_status_trend.rds")
+
+# Old version (using medians)
+# saveRDS(dat_status_old, "Data/05_dat_status_trend_OLD.rds")
+
+xtabs(~PARAM + Status, dat_status_trend)
+
+```
+
+## 9. Extras  
+
+### Check for HG limits  
+```{r, results='hold'}
+
+# Individual data  
+
+cat("----------------------------------------------------------------------------  \n")
+cat("dat_ind (data for individual samples), ww basis compared with 20, dw basis compared with 129   \n")
+cat("----------------------------------------------------------------------------  \n")
+
+dat_ind %>%
+  filter(MYEAR >= 2010,
+         PARAM == "HG", 
+         Country %in% c("Germany", "Denmark", "Sweden", "Poland"),
+         BASIS == "W") %>%
+  xtabs(~(Value > 20) + Country + BASIS, .)
+
+dat_ind %>%
+  filter(MYEAR >= 2010,
+         PARAM == "HG", 
+         Country %in% c("Germany", "Denmark", "Sweden", "Poland"),
+         BASIS == "D") %>%
+  xtabs(~(Value > 129) + Country + BASIS, .)  
+
+cat("----------------------------------------------------------------------------  \n")
+cat("dat_medians (medians per year), 'Value' is dw basis in case of mercury    \n")
+cat("----------------------------------------------------------------------------  \n")
+
+dat_medians %>%
+  filter(Year >= 2010,
+         PARAM == "HG", 
+         Country %in% c("Germany", "Denmark", "Sweden", "Poland")) %>%
+  xtabs(~(Value > 129) + Country, .)  
+
+cat("----------------------------------------------------------------------------  \n")
+cat("dat_status_3 (status)   \n")
+cat("----------------------------------------------------------------------------  \n")
+
+dat_status_3 %>%
+  filter(PARAM == "HG", 
+         Country %in% c("Germany", "Denmark", "Sweden", "Poland")) %>%
+  xtabs(~Status + Country + status_analysis, .)  
+
+cat("----------------------------------------------------------------------------  \n")
+cat("dat_status_3 (status) by region (all countries)  \n")
+cat("----------------------------------------------------------------------------  \n")
+
+dat_status_3 %>%
+  filter(PARAM == "HG") %>%
+  xtabs(~Status + Region + status_analysis, .)  
+
+cat("----------------------------------------------------------------------------  \n")
+cat("dat_status_trend  \n")
+cat("----------------------------------------------------------------------------  \n")
+
+dat_status_trend %>%
+  filter(PARAM == "HG", 
+         Country %in% c("Germany", "Denmark", "Sweden", "Poland")) %>% # View()
+  xtabs(~Status + Country, .)  
+
+
+```
+
+### Check HG status (table and map)   
+```{r}
+
+if (F){
+  
+  #
+  # View HG status data as table
+  #
+  dat_status_3 %>% filter(PARAM == "HG") %>% View("dat_status_3")
+  
+  #
+  # View HG status data on a map (status_analysis = Yes only)
+  #
+  # Saved as
+  #   '07_map_Hg_status_this_script.JPG'  
+  # Compared with OSPAR OHAT map (2022 version)
+  #   https://dome.ices.dk/ohat/?assessmentperiod=2022
+  #   '07_map_Hg_status_OSPAR_OHAT.JPG'
+  
+  #
+  df1 <- dat_status_3 %>%
+    filter(PARAM == "HG", status_analysis %in% "Yes", Status == 1)
+  df2 <- dat_status_3 %>%
+    filter(PARAM == "HG", status_analysis %in% "Yes", Status == 2)
+  df3 <- dat_status_3 %>%
+    filter(PARAM == "HG", status_analysis %in% "Yes", Status == 3)
+  
+  icons_green <- awesomeIcons(
+    icon = 'ios-close', iconColor = 'black', library = 'ion', markerColor = "green"
+  )
+  icons_red <- awesomeIcons(
+    icon = 'ios-close', iconColor = 'black', library = 'ion', markerColor = "red"
+  )
+  
+  leaflet() %>%
+    addTiles() %>%
+    addAwesomeMarkers(lng = df2$Longitude, lat = df2$Latitude, popup = df2$id, icon = icons_red) %>%
+    addAwesomeMarkers(lng = df1$Longitude, lat = df1$Latitude, popup = df1$id, icon = icons_green)
+  
+}
+
+```
+
+
+### Check of regions, using mapview         
+
+```{r}
+
+dat_assessed_stations <- sf::st_as_sf(
+  dat_status_trend %>% 
+    group_by(Country, Region, MSFD_region, id, Longitude, Latitude) %>%
+    summarise(
+      species = paste(unique(WoRMS_scientificName), collapse = ", "),
+      n_species = length(unique(WoRMS_scientificName)),
+      first_year = min(first_year),
+      last_year = max(last_year),
+      n_years = max(n_years)
+    ) %>%
+    mutate(Lon = Longitude, Lat = Latitude),  # copy these, so they show up in the pop-up
+  coords = c("Longitude", "Latitude"),
+  crs = "+proj=longlat +ellps=WGS84",
+  agr = "constant")
+
+# in console:
+# mapview::mapview(dat_assessed_stations, zcol = "MSFD_region")
+# mapview::mapview(dat_assessed_stations, zcol = "Region")
+
+```
+
+
+
+### mapview check    
+- Compare with https://odims.ospar.org/en/submissions/ospar_outer_boundary_2016_01/ 
+```{r}
+
+sf_CD <- sf::st_as_sf(
+  dat_status_trend %>% 
+    filter(PARAM == "CD") %>%
+    mutate(Lon = Longitude, Lat = Latitude),  # copy these, so they show up in the pop-up
+  coords = c("Longitude", "Latitude"),
+  crs = "+proj=longlat +ellps=WGS84",
+  agr = "constant")
+
+# in console:
+# mapview::mapview(sf_CD, zcol = "id")
+
+# head(sf_CD)
+
+```
+
+
+### test plot  
+```{r, fig.width=9, fig.height=7}
+
+
+library(maps)
+my_map <- map_data("world")
+
+param <- "HCHG"
+param <- "HG"
+# param <- "CB118"
+
+df_plot <- dat_status_trend %>%
+  mutate(Status = factor(Status)) %>%
+  filter(PARAM == param)    #  & Country == "Norway"
+
+ggplot(df_plot, aes(Longitude, Latitude, fill = Status, shape = Trend)) +
+  annotation_map(my_map, fill = "grey70") +
+  geom_point() +
+  scale_fill_manual(values = c(`1` = "blue", `2` = "green", `3` = "red")) +
+  scale_shape_manual(values = c(Decrease = 25, Increase = 24, 
+                                `No trend` = 21, `Trend unknown` = 22)) +
+  coord_map("ortho", orientation = c(52, 10, 0))
+
+
+```
+
+
+## Appendix  
+
+
+### From 4a -  Get regression results, using list columns  
+The tidy way - stopped working, probably because {maps} was loaded, stopping map() from working   
+Made lots of mess trying to fix this (before realizing the reason), should be cleaned  
+```{r}
+
+if (FALSE){
+  
+  str(m, 2)
+
+  dat_medians_ols$data[2]
+  
+  result_ols_model_all1 <- dat_medians_ols %>%
+    mutate(
+      ols_model = map(data, lm_fixed_s)    # perform lm
+    )
+  
+  not_ok <- map_lgl(result_ols_model_all1$ols_model, ~is.null(.x[[1]]))
+  cat(sum(!not_ok), "of", length(not_ok), "results are ok \n")
+  
+  # result_ols_model_all$ols_model[1] %>% broom::tidy()
+  # result_ols_model_all$ols_model[1][[1]] %>% broom::tidy()
+  # result_ols_model_all$ols_model[1][[1]] %>% broom::tidy()
+  # result_ols_model_all$ols_model[1][[1]]$result %>% broom::tidy()
+  
+ 
+  result_ols_model_all <- dat_medians_ols %>%
+    mutate(
+      ols_model = map_peacefully(data, ~lm(Log_value ~ Year, data = .x)),    # perform lm
+      ols_coef = map_peacefully(ols_model, ~broom::tidy(.$x[[1]]))    
+    )
+  
+  
+  
+  not_ok <- map_lgl(result_ols_model_all$ols_model, ~is.null(.x[[1]]))
+  cat(sum(!not_ok), "of", length(not_ok), "results are ok \n")
+  
+  
+  #    ols_coef = map_peacefully(ols_model, tidy)                          
+  
+  result_ols <- result_ols_model %>%
+    select(-ols_model) %>%
+    unnest(ols_coef) %>% 
+    filter(term == "Year") %>%
+    mutate(
+      trend = case_when(
+        estimate > 0 & p.value < 0.05 ~ "Increase",
+        estimate < 0 & p.value < 0.05 ~ "Decrease",
+        TRUE ~ "No trend")
+    )
+  
+
+xtabs(~trend, result_ols)
+xtabs(~Country + trend, result_ols)
+xtabs(~PARAM + trend, result_ols)
+
+
+# dat_medians_ols$mod_ols[1]
+# dat_medians_ols[1,]  
+
+}
+
+```
+

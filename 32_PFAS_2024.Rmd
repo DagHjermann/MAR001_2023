@@ -1,0 +1,723 @@
+---
+title: "32_PFAS_2023"
+author: "DHJ"
+date: "2023-06-20"
+output: 
+  html_document:
+    keep_md: true  
+    toc: true  
+    toc_float: true
+---
+
+## 0. Settings
+```{r}
+
+save_plots <- FALSE
+
+```
+
+
+## 1. Packages    
+```{r, message=FALSE, warning=FALSE, results='hide'}
+
+library(dplyr)
+library(purrr)
+library(lubridate)
+library(readr)
+library(stringr)    
+library(ggplot2)
+library(ggeasy)        # easy formatting of ggplot plots
+library(forcats)       # easy ordering of levels in a factor
+library(RColorBrewer)  
+library(glue)
+
+library(agricolae)
+
+
+```
+
+## 2. Read ICES data
+
+*  No PFAS in EMODnet data   
+
+
+### ICES data
+
+```{r}
+
+# As EMODnet, only that L20 and botDepth 
+coltypes <- cols(
+  .default = col_character(),
+  MYEAR = col_integer(),
+  SD_StationCode = col_double(),
+  Samplingtime = col_date(format = ""),
+  Latitude = col_double(),
+  Longitude = col_double(),
+  DEPHU = col_double(),
+  DEPHL = col_double(),
+  SampleIdentifier = col_character(),
+  SubsampleIdentifier = col_character(),
+  WoRMS_AphiaID = col_character(),
+  WoRMS_accepted_AphiaID = col_character(),
+  SEXCO = col_character(),
+  Value = col_double(),
+  # L20 = col_double(),
+  UNCRT = col_double(),
+  LMQNT = col_double(),
+  DETLI = col_double(),
+  DRYWT = col_double(),
+  FATWT = col_double(),
+  EXLIP = col_double(),
+  LIPIDWT = col_double()
+  # BotDepth = col_double()
+)
+
+df2_orig <- readr::read_tsv("Input_data/From_Hans_2023/ICES_DOME_biota_20230601_1.txt", col_types = coltypes) %>%
+  mutate(Year = year(Samplingtime), 
+         Month = month(Samplingtime), 
+         .before = everything())
+
+nrow(df2_orig)
+# 1635146
+
+
+```
+
+
+## 3. Define lookup terms  
+
+### Define species type and common name  
+
+* ICES data  
+
+```{r}
+
+# For writing code:
+# df2_orig %>%
+#   filter(PARAM == "PFOS") %>% pull(WoRMS_scientificName) %>% unique() %>% dput
+
+df_taxon <- tribble(
+  ~WoRMS_scientificName, ~Species_type, ~Common_name,
+  "Clupea harengus", "Fish, low-trophic", "Herring", 
+  "Uria aalge", "Seabird", "Common guillemot", 
+  "Platichthys flesus", "Fish, benthic", "European flounder",
+  "Pleuronectes platessa", "Fish, benthic", "European plaice", 
+  "Crassostrea gigas", "Mussel/oyster", "Pacific oyster",
+  "Mytilus edulis", "Mussel/oyster", "Blue mussel",
+  "Gadus morhua", "Fish, predatory", "Cod",
+  "Perca fluviatilis", "Fish, predatory", "European perch",
+  "Haematopus ostralegus", "Seabird", "Oystercatcher",
+  "Sterna hirundo", "Seabird", "Common tern",
+  "Macoma balthica", "Mussel/oyster", "Baltic macoma",
+  "Zoarces viviparus", "Fish, low-trophic", "Eelpout", 
+  "Neogobius melanostomus", "Fish, benthic", "Round goby", 
+  "Somateria mollissima", "Seabird", "Eider duck",
+  "Ursus maritimus", "Mammal", "Polar bear", 
+  "Phoca hispida", "Mammal", "Ringed seal", 
+  "Globicephala melas", "Mammal", "Pilot whale", 
+  "Ovis aries", "Terrestrial mammal", "Sheep",
+  "Abramis brama", "Fish, low-trophic", "Bream", 
+  "Fulmarus glacialis", "Seabird", "Northern fulmar",
+  "Cepphus grylle", "Seabird", "Black guillemot"
+)
+
+```
+
+### Define region names   
+
+```{r}
+
+
+if (FALSE){
+  ggplot(df2_orig %>% distinct(Longitude, Latitude, MSFD_region), 
+         aes(Longitude, Latitude, color = MSFD_region)) +
+    geom_point()
+}
+
+
+df_region <- tribble(
+  ~MSFD_region, ~MSFD_regionname,
+  "ABI", "Biscay, Iberian coast",
+  "ACS", "Celtic Seas",
+  "ANS", "Greater North Sea",
+  "ATL", "Atlantic Ocean",
+  "BAL", "Baltic Sea",
+  "BAR", "Barents Sea",
+  "NOR", "Norwegian Sea"
+)
+
+
+```
+
+
+### Add species type and common names + region  
+
+```{r}
+
+df2_orig2 <- df2_orig %>%
+  left_join(df_taxon, by = "WoRMS_scientificName") %>%
+  left_join(df_region, by = "MSFD_region")
+
+
+```
+
+## 4. Tables  
+
+### Number of measurements   
+
+* ICES only, as there are no EMODnet data   
+
+```{r}
+
+df2_orig2 %>%
+  filter(PARGROUP == "O-FL") %>%
+  xtabs(~ MYEAR + PARAM, .)
+
+df2_orig2 %>%
+  filter(PARGROUP == "O-FL") %>%
+  group_by(Country, STATN, PARAM) %>%
+  summarize(
+    n_year = n(),
+    min_year = min(MYEAR),
+    max_year = max(MYEAR) 
+  ) %>%
+  filter(
+    max_year >= 2011   
+  ) %>%
+  xtabs(~ Country + PARAM, .)
+
+
+```
+
+
+
+### Number of series  
+
+```{r}
+
+df_pfas_series <- df2_orig2 %>%
+  filter(PARGROUP == "O-FL") %>%
+  distinct(Country, MSFD_regionname, STATN, PARAM, WoRMS_scientificName, Common_name, MATRX, MYEAR) %>%
+  group_by(Country, MSFD_regionname, STATN, PARAM, WoRMS_scientificName, Common_name, MATRX) %>%
+  summarize(
+    n_year = n(),
+    min_year = min(MYEAR),
+    max_year = max(MYEAR) 
+  ) %>%
+  filter(
+    max_year >= 2011   
+  )
+
+xtabs(~ Common_name + PARAM, df_pfas_series)
+
+```
+
+
+### Species vs regions  
+
+```{r}
+
+xtabs(~Common_name + MSFD_regionname, df_pfas_series)
+
+```
+
+## 5. PFOS data   
+
+### Plot series     
+
+```{r, fig.width = 6, fig.height=12}
+
+df_pfas_series %>%
+  ungroup() %>%
+  filter(PARAM == "PFOS",
+         max_year > min_year) %>%
+  arrange(desc(max_year), desc(min_year)) %>%
+  mutate(
+    Series = fct_inorder(factor(paste(Country, STATN)))
+    ) %>%
+  ggplot(aes(x = Series, ymin = min_year, ymax = max_year)) +
+  geom_linerange() +
+  coord_flip()
+
+```
+
+### Species colors and order  
+
+```{r}
+
+# RColorBrewer::display.brewer.all(5)
+
+cols_purple <- RColorBrewer::brewer.pal(5, name = "Purples")[4]
+cols_blue <- RColorBrewer::brewer.pal(5, name = "Blues")[3:5]
+cols_red <- RColorBrewer::brewer.pal(5, name = "OrRd")[c(3,5)]
+cols_green <- RColorBrewer::brewer.pal(5, name = "Greens")[c(3,5)]
+
+species_type_colors <- c("Mussel/oyster" = cols_purple, 
+                        "Fish, low-trophic" = cols_blue[1],
+                        "Fish, benthic" = cols_blue[2],
+                        "Fish, predatory" = cols_blue[3], 
+                        "Seabird" = cols_red[1],
+                        "Mammal" = cols_red[2])
+
+species_type_order <- names(species_type_colors)
+
+```
+
+### Region order  
+
+```{r}
+
+region_colors <- c("Barents Sea" = cols_purple, 
+                   "Atlantic Ocean" = cols_blue[1],
+                   "Norwegian Sea" = cols_blue[2],
+                   "Celtic Seas" = cols_blue[3], 
+                   "Greater North Sea" = cols_red[1],
+                   "Baltic Sea" = cols_red[2],
+                   "Biscay, Iberian coast" = cols_green[2])
+
+region_order = names(region_colors)
+
+```
+
+### Basis and units     
+
+```{r}
+df2_orig2 %>%
+  filter(PARAM == "PFOS") %>%
+  xtabs(~MUNIT + BASIS, .)
+
+df2_orig2 %>%
+  filter(PARAM == "PFOS") %>%
+  xtabs(~WoRMS_scientificName + BASIS, .)
+
+
+```
+
+
+
+### PFOS data  
+
+```{r}
+
+df_pfos <- df2_orig2 %>%
+  filter(PARAM == "PFOS" & BASIS == "W" & Species_type != "Terrestrial mammal") %>%
+  mutate(
+    Value = case_when(
+      MUNIT == "ng/kg" ~ Value/1000,
+      TRUE ~ Value),
+    Conc_EQS_ratio = Value/9.1,
+    Species_type = factor(Species_type, levels = species_type_order),
+    MSFD_regionname = factor(MSFD_regionname, levels = region_order)
+    ) %>%
+  mutate(Common_name = fct_reorder(factor(Common_name), Value))
+
+```
+
+## 6. PFOS plots   
+
+### Ratio concentration/EQS    
+
+```{r}
+
+# display.brewer.all(n = 5)
+
+
+gg <- ggplot(df_pfos, aes(x = Common_name, y = Conc_EQS_ratio, color = Species_type)) +
+  geom_hline(yintercept = 1) +
+  geom_boxplot() +
+  scale_color_manual("Species group", values = species_type_colors) +
+  scale_y_log10(labels = scales::label_number()) +
+  theme_bw() +
+  easy_rotate_labels("x", angle = -45) +
+  easy_remove_axes(which = "x", what = "title") +
+  labs(y = "Ratio concentration/EQS")
+
+if (save_plots)
+  ggsave("Figures/2023/32_PFAS_EQSratio1.png", gg, width = 8, height = 5, dpi = 200)
+
+gg
+
+```
+#### Get raw data for plot  
+
+```{r}
+
+df_pfos_for_plot <- df_pfos %>%
+  select(Common_name, Conc_EQS_ratio, Species_type)
+
+# Saved further down (next chunk)
+
+# Test
+gg <- ggplot(df_pfos_for_plot, aes(x = Common_name, y = Conc_EQS_ratio, color = Species_type)) +
+  geom_hline(yintercept = 1) +
+  geom_boxplot() +
+  scale_color_manual("Species group", values = species_type_colors) +
+  scale_y_log10(labels = scales::label_number()) +
+  theme_bw() +
+  easy_rotate_labels("x", angle = -45) +
+  easy_remove_axes(which = "x", what = "title") +
+  labs(y = "Ratio concentration/EQS")
+
+# gg
+
+```
+
+#### Get plot data  
+
+```{r}
+ggplot_build(gg) %>% str(1)
+ggplot_build(gg)$data %>% str(1)
+ggplot_build(gg)$data[[2]]
+
+a <- layer_data(gg, i = 2)
+str(a, 1)
+
+a2 <- a %>%
+  mutate(colour = fct_inorder(colour)) %>%
+  mutate(Common_name = levels(df_pfos$Common_name)[x],
+         Common_name = fct_inorder(Common_name))
+
+# Boxes
+a2_boxes <- a2 %>% 
+  select(x, Common_name, ymin, lower, middle, upper, ymax, colour)
+
+# - numbers on x axis
+ggplot(a2_boxes, aes(x, middle, color = colour)) +
+  geom_point(pch = 15) +
+  geom_point(aes(y = ymin), pch = 1) +
+  geom_point(aes(y = lower), pch = 6) +
+  geom_point(aes(y = upper), pch = 2) +
+  geom_point(aes(y = ymax), pch = 1) +
+  scale_color_manual(values = levels(a2$colour))
+
+# - names on x axis
+ggplot(a2_boxes, aes(Common_name, middle, color = colour)) +
+  geom_point(pch = 15) +
+  geom_point(aes(y = ymin), pch = 1) +
+  geom_point(aes(y = lower), pch = 6) +
+  geom_point(aes(y = upper), pch = 2) +
+  geom_point(aes(y = ymax), pch = 1) +
+  scale_color_manual(values = levels(a2$colour)) +
+  easy_rotate_labels("x", angle = -45) 
+
+# Outliers  
+a2_outliers <- a2 %>% 
+  select(Common_name, x, colour, outliers) %>%
+  tidyr::unnest(cols = c(outliers))
+ggplot(a2_outliers, aes(x, outliers, color = colour)) +
+  geom_point(pch = 15) +
+  scale_color_manual(values = levels(a2$colour))
+
+```
+
+#### Save both types  
+
+```{r}
+
+# Save
+writexl::write_xlsx(
+  list(points = a2_outliers,
+       boxplot = a2_boxes %>% 
+         rename(
+           `Lower end of whiskers` = ymin,
+           `Upper end of whiskers` = ymax),
+       raw_data = df_pfos_for_plot,
+       colours = data.frame(
+         species_group = names(species_type_colors),
+         colors = species_type_colors)),
+  "Figures/2023/PFOS_signal_data.xlsx" 
+)
+
+```
+
+
+#### With regions  
+
+```{r}
+
+# xtabs(~MSFD_regionname, df_pfos)
+
+# dput(unique(df_pfos$MSFD_regionname))
+
+gg2 <- gg + 
+  facet_wrap(vars(MSFD_regionname))  
+
+if (save_plots)
+  ggsave("Figures/2023/32_PFAS_EQSratio2.png", gg2, width = 9, height = 8, dpi = 200)
+
+gg2
+
+```
+
+### PFOS in cod  
+
+#### Boxplot, all years  
+
+```{r}
+
+species <- "Cod"
+
+df_pfos_cod <- df_pfos %>%
+  filter(Common_name == species)
+
+gg <- ggplot(df_pfos_cod, aes(x = MSFD_regionname, y = Conc_EQS_ratio, color = MSFD_regionname)) +
+  geom_hline(yintercept = 1) +
+  geom_boxplot() +
+  scale_color_manual(values = region_colors) +
+  scale_y_log10(labels = scales::label_number()) +
+  theme_bw() +
+  easy_rotate_labels("x", angle = -45) +
+  easy_remove_axes(which = "x", what = "title") +
+  labs(y = "Ratio concentration/EQS",
+       title = paste("PFOS in", tolower(species)))
+
+fn <- glue("Figures/2023/32_PFAS_EQSratio_{tolower(species)}.png")
+if (save_plots)
+  ggsave(fn, gg, width = 8, height = 5, dpi = 200)
+
+gg
+
+```
+
+#### Boxplot, 2015-2016 and 2021 only    
+
+```{r}
+
+df_pfos_cod_sel <- df_pfos_cod %>%
+  mutate(
+    Years = case_when(
+      Year %in% 2015:2016 ~ "2015-2016",
+      Year %in% 2021 ~ "2021")
+    ) %>%
+  filter(!is.na(Years))
+
+gg <- ggplot(df_pfos_cod_sel, aes(x = MSFD_regionname, y = Conc_EQS_ratio, color = MSFD_regionname)) +
+  geom_hline(yintercept = 1) +
+  geom_boxplot() +
+  scale_color_manual(values = region_colors) +
+  scale_y_log10(labels = scales::label_number()) +
+  theme_bw() +
+  easy_rotate_labels("x", angle = -45) +
+  easy_remove_axes(which = "x", what = "title") +
+  labs(y = "Ratio concentration/EQS",
+       title = paste("PFOS in", tolower(species))) +
+  facet_grid(cols = vars(Years))
+
+#fn <- glue("Figures/2023/32_PFAS_EQSratio_{tolower(species)}.png")
+# ggsave(fn, gg, width = 8, height = 5, dpi = 200)
+
+gg
+
+```
+
+#### Data by year  
+```{r}
+
+df_pfos_cod %>%
+  count(Year, MSFD_regionname) %>%
+  ggplot(aes(Year, MSFD_regionname, fill = n)) +
+  geom_tile()
+
+```
+
+
+#### Test effect of region and year (ANOVA)    
+
+```{r}
+
+nrow(df_pfos_cod)
+
+df_pfos_cod <- df_pfos_cod %>%
+  mutate(log_Conc_EQS_ratio = log10(Conc_EQS_ratio))
+
+m0 <- lm(log_Conc_EQS_ratio ~ 1, data = df_pfos_cod)
+m1a <- lm(log_Conc_EQS_ratio ~ MSFD_regionname, data = df_pfos_cod)
+m1b <- lm(log_Conc_EQS_ratio ~ Year, data = df_pfos_cod)
+m2 <- lm(log_Conc_EQS_ratio ~ MSFD_regionname + Year, data = df_pfos_cod)
+cat("--------------------------------------------\n")
+cat("Null model -> Region -> Region + Year \n")
+cat("--------------------------------------------\n")
+anova(m0, m1a, m2, test = "F")
+
+cat("\n\n--------------------------------------------\n")
+cat("Null model -> Year -> Region + Year \n")
+cat("--------------------------------------------\n")
+anova(m0, m1b, m2, test = "F")
+
+
+```
+
+#### Test effect of region and year, 2015-2016 and 2021 only    
+
+```{r}
+
+df_pfos_cod_list <- list(
+  df_pfos_cod %>% filter(Year %in% 2015:2016),
+  df_pfos_cod %>% filter(Year %in% 2021)
+)
+
+names(df_pfos_cod_list) <- c("2015-2016", "2021")
+
+map_int(df_pfos_cod_list, nrow)
+
+for (i in 1:2){
+  
+  cat("\n==========\n", names(df_pfos_cod_list)[i], "\n==========\n")
+  
+  m0 <- lm(log_Conc_EQS_ratio ~ 1, data = df_pfos_cod_list[[i]])
+  m1a <- lm(log_Conc_EQS_ratio ~ MSFD_regionname, data = df_pfos_cod_list[[i]])
+  anova(m0, m1a, test = "F") %>% print()
+
+}
+
+
+```
+
+
+#### Region effect, post-hoc test  
+
+```{r}
+
+model <- aov(log_Conc_EQS_ratio ~ MSFD_regionname, data = df_pfos_cod)
+multcomp <-  HSD.test(model, "MSFD_regionname", alpha = 0.05)
+plot(multcomp)
+# par(mfrow=c(1,1), mar=c(3,10,2,3))
+# plot(multcomp, horiz=TRUE, las = 1, cex.names = 0.8, xlim = c(-1,0))
+
+```
+
+
+#### Region effect, post-hoc test, 2015-2016 and 2021 only  
+
+```{r}
+
+
+for (i in 1:2){
+  
+  # cat("\n==========\n", names(df_pfos_cod_list)[i], "\n==========\n")
+  
+  model <- aov(log_Conc_EQS_ratio ~ MSFD_regionname, data = df_pfos_cod_list[[i]])
+  multcomp <-  HSD.test(model, "MSFD_regionname", alpha = 0.05)
+  plot(multcomp, main = names(df_pfos_cod_list)[i])
+  
+}
+
+```
+
+
+### PFOS in blue mussel  
+
+```{r}
+
+species <- "Blue mussel"
+
+gg <- df_pfos %>%
+  filter(Common_name == species) %>%
+  ggplot(aes(x = MSFD_regionname, y = Conc_EQS_ratio, color = MSFD_regionname)) +
+  geom_hline(yintercept = 1) +
+  geom_boxplot() +
+  scale_color_manual(values = region_colors) +
+  scale_y_log10(labels = scales::label_number()) +
+  theme_bw() +
+  easy_rotate_labels("x", angle = -45) +
+  easy_remove_axes(which = "x", what = "title") +
+  labs(y = "Ratio concentration/EQS",
+       title = paste("PFOS in", tolower(species)))
+
+
+fn <- glue("Figures/2023/32_PFAS_EQSratio_{tolower(species)}.png")
+if (save_plots)
+  ggsave(fn, gg, width = 8, height = 5, dpi = 200)
+
+gg
+
+```
+
+
+### PFOS in birds    
+
+```{r}
+
+speciesgroup <- "Seabird"
+
+# For adding text att bottom of plot
+# 
+df_speciesnames <- df_pfos %>%
+  filter(Species_type == speciesgroup) %>% # count(MSFD_regionname, Common_name) %>%
+  group_by(MSFD_regionname) %>%
+  # collapse = "\n" gives a line shift 
+  summarize(Common_names = paste(unique(Common_name), collapse = "\n")) %>%
+  mutate(y = 0.01)
+
+gg <- df_pfos %>%
+  filter(Species_type == speciesgroup) %>% # count(MSFD_regionname, Common_name) %>%
+  ggplot(aes(x = MSFD_regionname, y = Conc_EQS_ratio)) +
+  geom_hline(yintercept = 1) +
+  geom_boxplot(aes(color = MSFD_regionname)) +
+  geom_text(data = df_speciesnames, aes(y = y, label = Common_names), vjust = 1, size = 3) +
+  scale_color_manual(values = region_colors) +
+  # Y limit set by trial and error
+  scale_y_log10(labels = scales::label_number(), limits = c(0.005, 100)) +
+  theme_bw() +
+  easy_rotate_labels("x", angle = -45) +
+  easy_remove_axes(which = "x", what = "title") +
+  labs(y = "Ratio concentration/EQS",
+       title = "PFOS in seabirds")
+
+if (save_plots)
+  ggsave("Figures/2023/32_PFAS_EQSratio_seabirds.png", gg, width = 8, height = 5, dpi = 200)
+
+gg
+
+```
+
+
+### PFOS in seabirds and mammals      
+
+```{r}
+
+speciesgroup <- c("Seabird", "Mammal")
+# speciesgroup <- c( "Mammal")
+
+# For adding text att bottom of plot
+# 
+
+region2_order <- c("Barents Sea, Seabird", "Atlantic Ocean, Seabird", 
+                   "Atlantic Ocean, Mammal", "Greater North Sea, Seabird", "Baltic Sea, Seabird")
+
+df_speciesnames <- df_pfos %>%
+  filter(Species_type %in% speciesgroup) %>% # count(MSFD_regionname, Common_name) %>%
+  mutate(
+    MSFD_regionname2 = paste0(MSFD_regionname, ", ", Species_type),
+    MSFD_regionname2 = factor(MSFD_regionname2, levels = region2_order)) %>%
+  group_by(MSFD_regionname, MSFD_regionname2, Species_type) %>%
+  # collapse = "\n" gives a line shift 
+  summarize(Common_names = paste(unique(Common_name), collapse = "\n")) %>%
+  mutate(y = 0.01)
+
+dput(df_speciesnames$MSFD_regionname2)
+
+gg <- df_pfos %>%
+  filter(Species_type %in% speciesgroup) %>% # count(MSFD_regionname, Common_name) %>%
+  mutate(
+    MSFD_regionname2 = paste0(MSFD_regionname, ", ", Species_type),
+    MSFD_regionname2 = factor(MSFD_regionname2, levels = region2_order)) %>%
+  ggplot(aes(x = MSFD_regionname2, y = Conc_EQS_ratio)) +
+  geom_hline(yintercept = 1) +
+  geom_boxplot(aes(color = MSFD_regionname)) +
+  geom_text(data = df_speciesnames, aes(y = y, label = Common_names), vjust = 1, size = 3) +
+  scale_color_manual(values = region_colors) +
+  # Y limit set by trial and error
+  scale_y_log10(labels = scales::label_number(), limits = c(0.002, 100)) +
+  theme_bw() +
+  easy_rotate_labels("x", angle = -45) +
+  easy_remove_axes(which = "x", what = "title") +
+  labs(y = "Ratio concentration/EQS",
+       title = "PFOS in seabirds and mammals")
+
+if (save_plots)
+  ggsave("Figures/2023/32_PFAS_EQSratio_seabird_mammals.png", gg, width = 10, height = 5, dpi = 200)
+
+gg
+
+```

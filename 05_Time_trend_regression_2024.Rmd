@@ -1,0 +1,1060 @@
+---
+title: "05_Time_trend_regression"
+author: "DHJ"
+date: "27 10 2021"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+---
+
+Classification for both trend and levels/status  
+* Part 3-6 = regression  
+    - Results `dat_series_trend` saved in  6
+    - 
+## 0. Controls  
+```{r}
+
+# Save results made in Section 4, 'Get regression results'?
+save_ordinary_regression <- FALSE
+
+overwrite_saved_regression <- TRUE
+
+# NOTE: backup will be taken
+
+```
+
+
+```{r}
+
+knitr::opts_chunk$set(results = 'hold')
+
+```
+
+
+## 1. Packages    
+```{r}
+
+library(dplyr)
+library(purrr)
+library(furrr)       # future_map
+library(collateral)  # map_peacefully
+library(tidyr)
+library(ggplot2)
+library(ggeasy)
+# library(lubridate)
+library(forcats)
+library(broom)       # tidy
+library(R2jags)      # (in 'lm_leftcensored') 
+library(glue)        # glue (in 'lm_leftcensored')  
+
+# source("02_Fix_station_duplicates_functions.R")
+source("05_Time_trend_regression_functions.R")
+
+# If package maps is loaded, unload it (messes up purrr::map)
+if ("maps" %in% (.packages()))
+  detach("package:maps", unload=TRUE)
+
+
+```
+
+
+## 2. Data  
+
+### Medians (main data)  
+
+* Note: 'Value' in the median data equals dry-weight value for metals and wet-weight otherwise   
+
+```{r}
+
+dat_medians <- readRDS("Data/04_dat_medians.rds") %>%
+  filter(Value > 0) %>%                      # remove zeros (due to EMODnet data < LOQ)
+  mutate(
+    Log_value = log10(Value),         # log10-transformed values will be used
+    Region = case_when(
+      MSFD_region %in% "BAL" ~ "Baltic",
+      MSFD_region %in% c("MWE","MAD","MIC") ~ "Mediterranean",
+      MSFD_region %in% "BLK" ~ "Black Sea",
+      TRUE ~ "North-East Atlantic Ocean.")
+    )
+    
+```
+
+### Raw data   
+```{r}
+
+dat_raw <- readRDS("Data/03_dat_7.rds")
+
+```
+
+#### - make metadata 'dat_series'     
+```{r}
+
+dat_coordinates <- dat_raw %>%
+  group_by(id) %>%
+  filter(!is.na(Longitude)) %>%
+  summarise(
+    across(c(Longitude, Latitude), median), .groups = "drop")
+
+dat_series <- dat_medians %>%
+  group_by(Country, MSFD_region, Region, id, WoRMS_scientificName, PARAM, Dataset) %>%
+  summarise(
+    first_year = min(Year),
+    last_year = max(Year),
+    n_years = length(unique(Year)), .groups = "drop"
+  ) %>%
+  left_join(
+    dat_coordinates, by = "id"
+  )
+
+ggplot(dat_series, aes(last_year, n_years)) +
+  geom_bin2d()
+
+dat_series %>%
+  xtabs(~(last_year > 2015) + (n_years >= 5), .)
+
+```
+
+
+## 3. Regression   
+
+### Set temporal criteria  
+- Only data after 2005 used   
+- The end of the time series should be in 2015 or later  
+- The length of the time series should be minimum 5 and maximum 10 years   
+- Examples (see exammple code below):  
+    - for a continuous annual time series until 2019, use 2010-2019  
+    - for a continuous annual time series until 2015, use 2006-2015  
+    - for a biannual time series 2005, 2007, ..., 2019, use 2011-2019 (5 years)       
+    - for an irregular time series 2005, 2007, 2008, 2009, 2010, 2013, 2017, 2019, there is not enough years in the time span 2011-2019 so we cannot make a time series for that period, but we can made a time series 2008-2017
+```{r}
+
+start_period_min <- 2005  
+end_period_min <- 2015  
+yearspan_max <- 10  
+no_years_min <- 5
+
+#
+# Pick last possible period 
+last_possible_period <- function(years, yearspan_max, no_years_min, end_period_min){
+  last_year <- years
+  first_possible_year <- last_year - (yearspan_max-1)
+  df <- data.frame(first_possible_year = first_possible_year, last_year = last_year)
+  # For each last_year, get which years that should be picked for time series
+  year_list <- 1:nrow(df) %>% 
+    purrr::map(~ (years >= df$first_possible_year[.x] & years <= df$last_year[.x]))
+  # Get number of years for each of those time series  
+  n_years <- year_list %>% map_int(~sum(.x))
+  accepted_year_lists <- which(
+    n_years >= no_years_min &         # all periods with enough years
+    df$last_year >= end_period_min)    # ...and ending in 2015 or later 
+  if (length(accepted_year_lists) > 0){
+    pick_year_list <- max(accepted_year_lists)           # pick the last of the accepted periods  
+    result <- years[year_list[[pick_year_list]]]
+  } else {
+    result <- NULL
+  }
+  result
+}
+
+if (FALSE){
+  # TEST
+  # debugonce(last_possible_period)
+  last_possible_period(years = 2005:2019, 10, 5, 2015)
+  last_possible_period(years = 2005:2015, 10, 5, 2015)
+  last_possible_period(years = 2005:2010, yearspan_max = 10, no_years_min = 5, end_period_min = 2015)
+  last_possible_period(years = seq(2005, 2019, 2), 10, 5, 2015)
+  last_possible_period(years = c(2005, 2007, 2008, 2009, 2010, 2013, 2017, 2019), 10, 5, 2015)
+  last_possible_period(years = c(2005, 2008, 2009, 2013, 2017, 2019), 10, 5, 2015)
+  
+}
+
+# Test inside data frame
+test1 <- bind_rows(
+  data.frame(Station = 1, Year = 2000:2019),
+  data.frame(Station = 2, Year = 2000:2015),
+  data.frame(Station = 3, Year = 2005:2010),
+  data.frame(Station = 4, Year = seq(2001, 2019, 2)),
+  data.frame(Station = 5, Year = c(2005, 2007, 2008, 2009, 2010, 2013, 2017, 2019)),
+  data.frame(Station = 6, Year = c(2005, 2008, 2009, 2013, 2017, 2019))
+)
+
+test2 <- test1 %>%
+  filter(Year >= start_period_min) %>%
+  group_by(Station) %>%
+  mutate(Include = 
+           Year %in% last_possible_period(
+             years = Year, yearspan_max = 10, no_years_min = 5, end_period_min = 2015)) %>%
+  ungroup() %>%
+  mutate(Station = factor(Station) %>% fct_rev)
+
+ggplot(test2, aes(Station, Year, color = Include)) + 
+  geom_point() +
+  coord_flip() +
+  labs(title = "Testing which years to inlcude, five sample time series")
+
+```
+
+### Pick time series     
+```{r}
+
+dat_medians_regr_all <- dat_medians %>%
+  filter(Year >= start_period_min) %>%
+  group_by(
+    Country, MSFD_region, Region, id, Dataset, WoRMS_scientificName, PARAM) %>%
+  mutate(
+    trend_analysis = 
+      Year %in% last_possible_period(
+        years = Year, yearspan_max = 10, no_years_min = 5, end_period_min = 2015),
+    n_years_avail = length(Year),
+    n_flag = sum(!is.na(Flag)),
+    sd = sd(Log_value),
+    first_year = min(Year),
+    last_year = max(Year)
+    ) %>%
+  ungroup()
+
+if (FALSE){
+  dat_medians_regr_all %>%
+    filter(grepl("30A", id) & PARAM == "CD") %>% View()
+  dat_medians_regr_all %>%
+    filter(grepl("MSS11", id) & PARAM == "CD") %>% View()
+}
+
+dat_medians_regr <- dat_medians_regr_all %>%
+  filter(trend_analysis)
+
+cat("nrow(dat_medians_regr_all):", nrow(dat_medians_regr_all), "\n")
+cat("nrow(dat_medians_regr):", nrow(dat_medians_regr), "\n")
+
+```
+
+### Statistics on series level  
+```{r}
+
+#
+# Check number of series 
+#
+check <- dat_medians_regr_all %>%
+  group_by(
+    Country, MSFD_region, Region, id, Dataset, WoRMS_scientificName, PARAM) %>%
+  summarise(
+    across(c(n_years_avail, n_flag, sd, first_year, last_year), first),
+    trend_analysis_n = sum(trend_analysis))
+
+check_extra <- dat_medians_regr %>%
+  group_by(
+    Country, MSFD_region, Region, id, Dataset, WoRMS_scientificName, PARAM) %>%
+  summarise(
+    last_year_used = max(Year))
+
+check <- check %>% left_join(check_extra)
+
+xtabs(~trend_analysis_n, check)
+xtabs(~last_year_used, check)
+
+if (FALSE){
+  xtabs(~n_years_avail, check)
+  xtabs(~n_years_avail + trend_analysis_n, check)
+  xtabs(~last_year + last_year_used, check)
+  xtabs(~first_year, check)
+  xtabs(~(last_year - first_year + (trend_analysis_n > 0)), check)
+  xtabs(~n_flag, check)
+  xtabs(~sd == 0, check)
+}
+
+# ggplot(check, aes(sd)) + geom_histogram()
+
+```
+
+## 4. Series with no LOQ: Ordinary regression   
+
+
+#### Nest data  
+```{r}
+
+# nested data (list-columns)
+dat_medians_ols <- dat_medians_regr %>%
+  filter(
+      n_flag == 0 &  # exclude series with one or more <LOQ values
+      sd > 0 &       # need some variation, otherwise variance can't be estimated 
+      UNIT == "ug/kg"
+  ) %>%
+  select(Country, MSFD_region, Region, id, Dataset, WoRMS_scientificName, PARAM, Year, Log_value) %>%
+  nest(tsdata = c(Year, Log_value))
+
+nrow(dat_medians_ols)
+
+```
+### Get regression results, old-fashioned way  
+- The method actually used  
+```{r}
+
+lm_fixed <- function(df){
+  m <- lm(Log_value ~ Year, data = df)
+  df <- as.data.frame(summary(m)$coef)
+  df$term <- c("Intercept", "Slope")      # better names
+  colnames(df)[2:4] <- c("SE", "t", "P")  # better names
+  rownames(df) <- NULL
+  df
+}
+lm_fixed_s <- safely(lm_fixed)
+
+# test
+lm_fixed(dat_medians_ols[["tsdata"]][[1]])
+lm_fixed_s(dat_medians_ols[["tsdata"]][[1]])$result
+
+coef_list <- dat_medians_ols[["tsdata"]] %>%
+  purrr::map(lm_fixed_s)  
+
+not_ok <- map_lgl(coef_list, ~is.null(.x[[1]]))
+cat(sum(!not_ok), "of", length(not_ok), "results are ok \n")  
+
+ols_coef = map(coef_list[!not_ok], ~.x[["result"]])
+
+# Get results 
+# Includes tsdata as a list column
+# 'result_ols_incl_data_1' is just a temporary product 
+# - input for both 'result_ols_incl_data' nad 'result_ols'  
+result_ols_incl_data_1 <- dat_medians_ols[!not_ok,] %>%
+  mutate(
+    ols_coef = ols_coef
+  ) %>%
+  unnest(ols_coef)
+
+result_ols_incl_data <- result_ols_incl_data_1 %>%
+  pivot_wider(names_from = term, values_from = c(Estimate, SE, t, P))
+# names(result_ols_incl_data)
+
+test_plot <- function(i){
+  ggplot(result_ols_incl_data$tsdata[[i]], aes(Year, Log_value)) +
+    geom_point() +
+    geom_abline(aes(intercept = result_ols_incl_data$Estimate_Intercept[i], 
+                    slope = result_ols_incl_data$Estimate_Slope[i])) +
+  labs(title = with(result_ols_incl_data[i,], paste(PARAM, id)))
+}
+# test_plot(200)
+
+
+# Get trend only
+result_ols <- result_ols_incl_data_1 %>%
+  select(-tsdata) %>%
+  filter(term == "Slope") %>%
+  mutate(
+    trend = case_when(
+      Estimate > 0 & P < 0.05 ~ "Increase",
+      Estimate < 0 & P < 0.05 ~ "Decrease",
+      TRUE ~ "No trend")
+  )
+
+# Save   
+if (save_ordinary_regression){
+  saveRDS(result_ols_incl_data, "Data/05_result_ols_incl_data.rds")
+  saveRDS(result_ols, "Data/05_result_ols.rds")
+}
+
+# Read back  
+# result_ols_incl_data <- readRDS("Data/05_result_ols_incl_data.rds")
+# str(result_ols_incl_data, 2)
+
+
+```
+
+### Plot all lines for one area    
+
+```
+log10y = a + b*year   
+
+Year Y and Y+10
+log10y1 = a + bY    
+log10y2 = a + b(Y+10)  
+  = a + bY + b*10  
+  = log10y1 + b*10  
+
+log10y2 = log10y1 + b*10 
+10^(log10y2) = 10^(log10y1 + b*10) 
+          y2 = 10^(log10y1) * 10^(b*10) 
+          y2 = y1 * 10^(b*10)  
+# i.e. a change of a factor of 10^(b*10)           
+
+```
+
+
+```{r}
+
+if (FALSE){
+  
+  # str(result_ols_incl_data, 2)
+  
+  i <- 200
+  
+  # Make data for geom_segment
+  yrs <- range(result_ols_incl_data[i, "tsdata"][[1]][[1]]$Year)
+  a <- result_ols_incl_data[i,]$Estimate_Intercept
+  b <- result_ols_incl_data[i,]$Estimate_Slope
+  p <- result_ols_incl_data[i,]$P_Slope
+  change <- case_when(
+    p < 0.05 & b > 0 ~ "Increase",
+    p < 0.05 & b < 0 ~ "Decrease",
+    p > 0.05 ~ "No significant change"
+  )
+  df <- data.frame(x1 = yrs[1], 
+                   x2 = yrs[2],
+                   y1 = a + yrs[1]*b, y2 = a + yrs[2]*b,
+                   p,
+                   change)
+  
+  df
+  
+  # Overlay on 'test_plot' to see if it works
+  test_plot(200) +
+    geom_segment(data = df, aes(x = x1, xend = x2, y = y1, yend = y2),
+                 size = 3, color = "red", alpha = 0.3)
+  
+}
+
+result_ols_segment <- result_ols_incl_data
+
+result_ols_segment$x1 <- seq_len(nrow(result_ols_segment)) %>% 
+  map_dbl(~min(result_ols_segment[.x, "tsdata"][[1]][[1]]$Year))
+result_ols_segment$x2 <- seq_len(nrow(result_ols_segment)) %>% 
+  map_dbl(~max(result_ols_segment[.x, "tsdata"][[1]][[1]]$Year))
+
+# str(result_ols_segment, 2)
+
+# x1[200]
+
+result_ols_segment <- result_ols_segment %>%
+  mutate(
+    y1 = Estimate_Intercept + x1*Estimate_Slope,
+    y2 = Estimate_Intercept + x2*Estimate_Slope,
+    Change_perc_10yr = 100*(10^(10*Estimate_Slope)-1),
+    Change = case_when(
+      P_Slope < 0.05 & Estimate_Slope > 0 ~ "Increase",
+      P_Slope < 0.05 & Estimate_Slope < 0 ~ "Decrease",
+      P_Slope > 0.05 ~ "No significant change"),
+    Change2 = case_when(
+      P_Slope < 0.05 & Change_perc_10yr > 20 ~ "> 20% increase, sign.",
+      P_Slope >= 0.05 & Change_perc_10yr > 20 ~ "> 20% increase, not sign.",
+      P_Slope < 0.05 & Change_perc_10yr < -20 ~ "> 20% decrease, sign.",
+      P_Slope >= 0.05 & Change_perc_10yr < -20 ~ "> 20% decrease, not sign.",
+      P_Slope < 0.05 ~ "Minor significant change",
+      P_Slope > 0.05 ~ "No significant change")
+  ) %>%
+  select(-tsdata)
+
+
+result_ols_segment %>%
+  filter(MSFD_region == "ANS" & PARAM == "HG") %>%
+  xtabs(~cut(Change_perc_10yr, c(-9999,-20,0,20,9999)) + Change, .)
+
+result_ols_segment %>%
+  filter(MSFD_region == "ANS" & PARAM == "HG") %>%
+  xtabs(~Change2, .)
+
+result_ols_segment %>%
+  filter(MSFD_region == "ANS" & PARAM == "HG") %>%
+  filter(Dataset == "ICES" & x2 >= 2018) %>%
+  ggplot() +
+  geom_segment(aes(x = x1, xend = x2, y = y1, yend = y2, color = Change2),
+               size = 1, alpha = 0.7) +
+  scale_color_manual(values = c("lightblue", "blue", "pink3", "red", "grey30")) +
+  theme_bw()
+
+
+```
+
+### Mapview check of slope  
+ North Sea only  
+```{r}
+
+data_sf <- sf::st_as_sf(
+  result_ols_segment %>%
+    filter(MSFD_region == "ANS" & PARAM == "HG" & Dataset == "ICES" & x2 >= 2018) %>%
+    left_join(dat_coordinates) %>% 
+    mutate(Lon = Longitude, Lat = Latitude),  # copy these, so they show up in the pop-up
+  coords = c("Longitude", "Latitude"),
+  crs = "+proj=longlat +ellps=WGS84",
+  agr = "constant")
+
+# in console:
+# mapview::mapview(data_sf, zcol = "id")
+# mapview::mapview(data_sf, zcol = "Estimate_Slope")
+
+# head(data_sf)
+
+```
+
+### Plot North Sea HG in Belgium, the Netherlands and England (not Scotland)
+```{r, fig.width=9, fig.height=4}
+
+df_sel <- result_ols_segment %>%
+  filter(MSFD_region == "ANS" & PARAM == "HG" & Dataset == "ICES" & x2 >= 2018) %>%
+  arrange(desc(Estimate_Slope)) 
+
+# Just to select/see rank of increase -> decrease (1 = highest increase):  
+df_sel$No <- 1:nrow(df_sel)
+
+# table(dat_medians$ Country)
+df_plot <- dat_medians %>%
+  left_join(dat_coordinates,  by = "id") %>%
+  left_join(df_sel %>% select(MSFD_region, id, WoRMS_scientificName, PARAM, Change,
+                              Estimate_Slope, P_Slope, Change_perc_10yr, 
+                              No, x1, x2, y1, y2),
+            by = c("MSFD_region", "id", "WoRMS_scientificName", "PARAM")) %>% # nrow()
+  filter(Year >= x1 & Year <= x2) %>% 
+  # filter(No %in% (1:4 + 20)) %>% 
+  filter(
+    (Country %in% c("Belgium", "The Netherlands")) |  # decreasing
+    (Country %in% "United Kingdom" & Latitude < 55)   # increasing
+    ) %>%  
+  mutate(
+    Area = case_when(
+      Country %in% c("Belgium", "The Netherlands") ~ "Belgium and the Netherlands",
+      Country %in% "United Kingdom" ~ "England"
+      ),
+    id2 = paste(id, WoRMS_scientificName)
+    )
+
+# Dstaset for labels (increase/decrease in percent per decade)
+df_plot_labels <- df_plot %>%
+  group_by(Area, id2, x2, y2, Change) %>%
+  summarize(Change_perc_10yr = first(Change_perc_10yr),
+    .groups = "drop") %>%
+  mutate(
+    Change_label = case_when(
+      Change_perc_10yr > 0 ~ paste0("+", round(Change_perc_10yr,0), "%"),
+      Change_perc_10yr <= 0 ~ paste0(round(Change_perc_10yr,0), "%"))
+  ) %>%
+  arrange(Area, y2)
+
+df_plot_labels 
+
+# Adjust y position of two labels to avoid overlap  
+# Pair 1
+sel <- df_plot_labels$id2 == "KNUITHK Mytilus edulis"
+df_plot_labels[sel, "y2"] <- df_plot_labels[sel, "y2"] - 0.015  
+sel <- df_plot_labels$id2 == "KNUITHK Crassostrea gigas"
+df_plot_labels[sel, "y2"] <- df_plot_labels[sel, "y2"] + 0.015  
+# Pair 2
+sel <- df_plot_labels$id2 == "BOCHTVWTM Crassostrea gigas"
+df_plot_labels[sel, "y2"] <- df_plot_labels[sel, "y2"] + 0.005  
+sel <- df_plot_labels$id2 == "DVZ_KNO Mytilus edulis"
+df_plot_labels[sel, "y2"] <- df_plot_labels[sel, "y2"] - 0.005  
+
+
+# Plot  
+gg_base <- ggplot(df_plot, aes(Year, Value, group = id2, color = Change)) +
+  geom_smooth(method = "lm", formula = 'y ~ x', se = FALSE) +
+  geom_text(data = df_plot_labels, aes(x = x2 + 1.1, 
+                y = 10^y2, 
+                label = Change_label)) +
+  facet_wrap(vars(Area), nrow = 1) +
+  scale_color_manual("Significant change", values = c("green3", "red", "grey30")) +
+  # geom_hline(yintercept = 20, linetype = "dashed") +
+  scale_x_continuous(breaks = seq(2010, 2020, 2),
+                     minor_breaks = 2010:2020, 
+                     limits = c(2009,2020.5)) +
+  guides(color=guide_legend(override.aes=list(label=c("","","")))) +
+  theme_bw() +
+  labs(y = expression(Hg~concentration*","*~mu*g/kg~w.w.~(log~scale)))  
+
+gg <- gg_base +
+  scale_y_log10(breaks = c(60,100,150,200,300))
+
+gg_with_eqs <- gg_base + 
+  scale_y_log10(breaks = c(20,50,100,150,200,300)) +
+  geom_hline(yintercept = 20, linetype = "dashed", color = "red3") +
+  annotate("text", x = 2009, y = 20, label = expression(EQS~(20~mu*g/kg)), 
+           hjust = 0, vjust = -0.2, color = "red3")
+gg_with_eqs
+
+# Save  
+# ggsave("Figures/05_HG_North_Sea_Southwest.png", gg, 
+#        width = 9, height = 4, dpi = 400)
+
+# Save gg_with_eqs 
+ggsave("Figures/05_HG_North_Sea_Southwest_with_eqs.png", gg_with_eqs, 
+       width = 9, height = 5.2, dpi = 400)
+
+gg
+
+
+
+
+```
+
+#### More checking  
+```{r}
+
+df <- result_ols_incl_data %>%
+  arrange(desc(Estimate_Slope)) %>%
+  head(1)
+
+# dat_medians %>%
+#   filter(id == df$id & PARAM == df$PARAM) %>%
+#   View()
+
+df
+
+df %>%
+  pull(tsdata)
+
+df <- result_ols_segment %>%
+  filter(MSFD_region == "ANS" & PARAM == "HG" & Dataset == "ICES" & x2 >= 2018) %>%
+  arrange(desc(Estimate_Slope)) 
+
+# Just to select/see rank of increase -> decrease:  
+df$No <- 1:nrow(df)
+
+# View(df)
+
+
+dat_medians %>%
+  left_join(dat_coordinates) %>%
+  left_join(df %>% select(MSFD_region, id, PARAM, Estimate_Slope, P_Slope, No, x1, x2)) %>% # nrow()
+  filter(Year >= x1 & Year <= x2) %>% 
+  # filter(No %in% (1:4 + 20)) %>% 
+  # filter(Country %in% c("Belgium", "Netherlands")) %>%     # decreasing
+  filter(Country %in% "United Kingdom" & Latitude < 55) %>%  # increasing
+  ggplot(aes(Year, Value, color = id)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_y_log10()
+  
+  
+df %>%
+  left_join(dat_coordinates) %>%
+  ggplot(aes(Longitude, Latitude, color = No)) +
+  geom_point() +
+  scale_color_gradient2(midpoint = 22)
+
+df %>%
+  left_join(dat_coordinates) %>%
+  ggplot(aes(Longitude, Latitude, color = Country)) +
+  geom_point()
+
+ 
+```
+
+
+## 5. Series with LOQ: STAN modelling       
+
+### Make nested data 
+```{r}
+
+#
+# Get minimum LOQ for every country and parameter   
+# - will later be joined to the data  
+#
+dat_medians_regr_series <- dat_medians_regr %>%
+  filter(
+    n_flag > 0 &     # those with <LOQ values
+      sd > 0 &       # need some variation, otherwise variance can't be estimated    
+      UNIT == "ug/kg") %>%
+  filter(!is.na(LOQ_value_as)) %>%           # we need 
+  group_by(Country, PARAM) %>%
+  summarise(
+    log_LOQ_min = min(log10(LOQ_value_as), na.rm = TRUE),  # must also ne log10-transformed
+    .groups = "drop"
+  )
+
+# select data, adn add LOQ per country/parameter/year (for ALL obs.)
+dat_medians_loq_unnested <- dat_medians_regr %>%
+  filter(
+    n_flag > 0 &     # those with <LOQ values
+      sd > 0 &
+      UNIT == "ug/kg") %>%
+  left_join(
+    dat_medians_regr_series, 
+    by = c("Country", "PARAM")
+  ) %>%
+  mutate(
+    Over_LOQ = ifelse(is.na(Flag), 1, 0),
+    # If no LOQ value for a given year, we 'assume' that the minimum LOQ for   
+    log_LOQ_assume = case_when(
+      is.na(LOQ_value_as) ~ log_LOQ_min,
+      !is.na(LOQ_value_as) ~ log10(LOQ_value_as)),  # must also ne log10-transformed
+    # Make sure that LOQ value isn't higher than the observed value
+    log_LOQ_assume = case_when(
+      log_LOQ_assume <= Log_value ~ log_LOQ_assume,
+      log_LOQ_assume > Log_value ~ Log_value
+    )
+  )
+  
+
+cat("Check if data set is complete (all should be zero): \n")
+df <- dat_medians_loq_unnested %>%
+  select(Year, Log_value, log_LOQ_assume, Over_LOQ)
+apply(is.na(df), 2, sum)       # numbers
+apply(is.na(df), 2, mean)*100  # percentage
+cat("\n\n")
+
+# Make nested data frame
+dat_medians_loq <- dat_medians_loq_unnested %>%
+  select(Country, MSFD_region, Region, id, Dataset, WoRMS_scientificName, PARAM, 
+         Year, Log_value, Flag, log_LOQ_assume, Over_LOQ) %>%
+  nest(data = c(Year, Log_value, Flag, log_LOQ_assume, Over_LOQ)) %>%
+  mutate(
+    Log_value_min = map_dbl(data, ~min(.x$Log_value)),
+    Log_value_mean = map_dbl(data, ~mean(.x$Log_value)),
+    Log_value_max = map_dbl(data, ~max(.x$Log_value))
+    )
+
+cat("Number of time series:", nrow(dat_medians_loq), "\n")
+
+
+```
+### Test lm_leftcensored  
+```{r}
+
+# Sereis no 1 works - try no 4 for one that fails  
+df <- dat_medians_loq$data[4]
+df <- dat_medians_loq$data[1]
+df
+
+# debugonce(lm_leftcensored)
+res <- lm_leftcensored(data = df, 
+                       var_x = "Year", var_y = "Log_value", 
+                       var_threshold = "log_LOQ_assume", 
+                       var_is_over_threshold = "Over_LOQ")
+
+# debugonce(lm_leftcensored_estimates)
+lm_leftcensored_estimates(res)
+
+  
+```
+
+### Functions for getting estimates of the slope ('beta')     
+```{r}
+
+#
+# lm_leftcensored for hard-coded variable names (only input is 'df')
+#
+# debugonce(lm_leftcensored)
+lm_leftcensored_fixed <- function(df){
+  lm_leftcensored(data = df, 
+                  var_x = "Year", var_y = "Log_value", 
+                  var_threshold = "log_LOQ_assume", 
+                  var_is_over_threshold = "Over_LOQ")
+}
+
+# mod <- lm_leftcensored_fixed(dat_medians_loq$data[1])
+
+#
+# Getting the estimates from the output of 'lm_leftcensored_fixed'  
+#
+get_est <- function(map_result){
+  modelresult <- map_result[[1]]
+  lm_leftcensored_estimates(modelresult)
+}
+
+if (FALSE){
+  test1 <- dat_medians_loq[1:2,] %>%
+    mutate(loq_model = map_peacefully(data, lm_leftcensored_fixed))                     #  model
+  test2 <- test1 %>% mutate(Est = map(loq_model, get_est))                     # get estimates
+}
+
+
+```
+
+### Functions, testing    
+- in particular, 'get_est'  
+```{r, message=FALSE}
+if (FALSE){
+  
+  # test map_peacefully (on first 10 rows)  
+  result_loq_model_all <- dat_medians_loq[1:10,] %>%
+    mutate(
+      loq_model = map_peacefully(data, lm_leftcensored_fixed)                     # get estimates 
+    )
+  
+  # Get estimates *without* map_peacefully  
+  x1 <- lm_leftcensored_fixed(dat_medians_loq$data[1])
+  lm_leftcensored_estimates(x1)
+  
+  # Get estimates *with* map_peacefully - need to dig quite a bit deeper   
+  x1b <- result_loq_model_all$loq_model[1][[1]][["result"]]
+  lm_leftcensored_estimates(x1b)
+  
+  # When we pick one object from the data frame, we need to ask for "result"
+  get_est_for_object <- function(map_result){
+    modelresult <- map_result[[1]][["result"]]
+    lm_leftcensored_estimates(modelresult)
+  }
+  get_est_for_object(result_loq_model_all$loq_model[1])
+  get_est_for_object(result_loq_model_all$loq_model[2])
+  
+  # However, when we use map, we should *not* ask for "result" 
+  #    (same function as prev. chunk)
+  get_est <- function(map_result){
+    modelresult <- map_result[[1]]
+    lm_leftcensored_estimates(modelresult)
+  }
+  
+  # For the naked variable
+  map(result_loq_model_all$loq_model[1:2], get_est)
+  
+  # For making new data frame
+  df <- result_loq_model_all[1:2,] %>%
+    mutate(
+      Est = map(loq_model, get_est)                     # get estimates 
+    ) %>%
+    select(-data, -loq_model) %>%
+    unnest(Est)
+
+}
+
+
+```
+
+### Run 'lm_leftcensored' for all    
+- using 'future_map_peacefully' (takes about 1 minute for all if use_multicore = TRUE) 
+```{r, message=FALSE, warning=FALSE,  error=FALSE, results='hide'}
+
+set.seed(48)
+
+use_multicore <- TRUE
+
+# Runs 'lm_leftcensored' for all time series
+# Store result as list column 'loq_model' 
+# - contains data and models, including failed ones
+
+if (use_multicore){
+  
+  plan(multisession, workers = 10)  
+  
+  result_loq_model_all <- dat_medians_loq %>%
+    mutate(
+      loq_model = future_map_peacefully(data, lm_leftcensored_fixed)           
+    )
+  
+} else {
+  
+  result_loq_model_all <- dat_medians_loq %>%
+    mutate(
+      loq_model = map_peacefully(data, lm_leftcensored_fixed)           
+    )
+
+}
+
+# copy this to console:
+# print(result_loq_model_all)
+
+not_ok <- map_lgl(result_loq_model_all$loq_model, ~is.null(.x[[1]]))
+cat(sum(!not_ok), "of", length(not_ok), "results are ok \n")
+
+#
+# This works, but returned many warnings of the type:
+#
+# Warning: Problem with `mutate()` column `loq_model`.
+# i `loq_model = future_map_peacefully(data, lm_leftcensored_fixed)`.
+# i UNRELIABLE VALUE: Future (‘<none>’) unexpectedly generated random numbers without specifying argument '[future.]seed'. There is a risk that those random numbers are not statistically sound and the overall results might be invalid. To fix this, specify argument '[future.]seed', e.g. 'seed=TRUE'. This ensures that proper, parallel-safe random numbers are produced via the L'Ecuyer-CMRG method. To disable this check, use [future].seed=NULL, or set option 'future.rng.onMisuse' to "ignore".
+#
+# however, when seed is specified, the model fails
+
+```
+
+
+### Get trends   
+
+```{r ,results = 'hold'}
+
+# Contains data and models, failed ones taken away  
+result_loq_model_filtered <- result_loq_model_all %>%
+  mutate(Failed = map_lgl(loq_model, ~is.null(.x$result))) %>%
+  filter(!Failed) 
+
+cat("Number of time series:", nrow(result_loq_model_all), " \n")
+cat("Number of time series where 'lm_leftcensored' worked:", nrow(result_loq_model_filtered), " \n")
+
+# Data frame with estimates (intercept and slope), without data and models  
+result_loq_model <- result_loq_model_filtered %>%
+  mutate(
+    Est = map(loq_model, get_est)                     # get estimates 
+  ) %>%
+  select(-data, -loq_model) %>%
+  unnest(Est)
+
+result_loq <- result_loq_model %>%
+  filter(term == "beta") %>%
+  mutate(
+    trend = case_when(
+      CI_lower > 0 ~ "Increase",
+      CI_upper < 0 ~ "Decrease",
+      TRUE ~ "No trend")
+  )
+
+xtabs(~trend, result_loq)
+xtabs(~Country + trend, result_loq)
+xtabs(~PARAM + trend, result_loq)
+
+# dat_medians_loq$mod_loq[1]
+# dat_medians_loq[1,]  
+
+```
+
+
+
+## 6. Combine trends  
+- and add coordinates  
+```{r}
+
+result_trends <- bind_rows(
+  result_ols %>%
+    rename(Slope = Estimate) %>%
+    mutate(Analysis = "OLS", 
+           CI_lower = Slope - 2*SE,
+           CI_upper = Slope + 2*SE) %>%
+    select(Country, id, WoRMS_scientificName, 
+         PARAM, Slope, SE, CI_lower, CI_upper, trend, Analysis),
+  result_loq %>%
+    rename(Slope = Median,
+           SE = SD) %>%
+    mutate(Analysis = "STAN") %>%
+    select(Country, id, WoRMS_scientificName, 
+           PARAM, Slope, SE, CI_lower, CI_upper, trend, Analysis)
+) 
+
+# Join to 'dat_series' in order to get coordinates  
+# Also in order to get data which did not succeed  
+n1 <- nrow(dat_series)
+dat_series_trend <- dat_series %>%
+  left_join(result_trends, 
+            by = c("Country", "id", "WoRMS_scientificName", "PARAM")) %>%
+  mutate(
+    trend = ifelse(is.na(trend), "Trend unknown", trend))
+n2 <- nrow(dat_series_trend)
+
+if (n2 > n1)
+  stop("left_join error!")
+
+table(dat_series_trend$trend)
+table(dat_series_trend$trend, dat_series_trend$PARAM)
+
+manualscale_shape <- c(Decrease = 25, Increase = 24, `No trend` = 21, `Trend unknown` = 22)
+
+dat_series_trend %>%
+  filter(PARAM == "CD") %>%    #  & Country == "Norway"
+  ggplot(aes(Longitude, Latitude, shape = trend, color = trend)) +
+  geom_point() +
+  scale_shape_manual(values = manualscale_shape)
+
+
+```
+
+
+### Remove 20 'one-year time series'   
+
+- FRB65 (DK) has been split in two because it was registered with MSFD_region 'ATL' in 2006 and with 'ANS' in all other years (see median file 'Data/04_dat_medians.rds' produced by script 04)    
+- We leave this fix as it is - i.e., remove 2006 from this series (see Appendix 3 in script 03)     
+
+```{r}
+
+sel <- with(dat_series_trend, id  == "FRB65" & n_years == 1)
+sum(sel)
+cat("Remove", sum(sel), "rows with one-year time series (FRB65) \n")
+
+dat_series_trend <- dat_series_trend[!sel,]
+
+```
+
+
+
+### Save  
+```{r}
+
+if (overwrite_saved_regression){
+  
+  # Save backup with time stamp
+  filename <- "Data/05_dat_series_trend.rds"
+  filename_backup <- sub(".rds", paste0("_", lubridate::now(), ".rds"), filename, fixed = TRUE)
+  filename_backup <- gsub(":", "-", filename_backup, fixed = TRUE)
+  filename_backup <- gsub(" ", "_", filename_backup, fixed = TRUE)
+  # filename_backup
+
+  file.copy(filename, filename_backup)
+    
+  saveRDS(dat_series_trend, "Data/05_dat_series_trend.rds")
+  
+  } else {
+  
+    message("Results not saved (set 'overwrite_saved_regression' to TRUE to save)")
+    
+  }
+
+# If you want to read back  
+# dat_series_trend <- readRDS("Data/05_dat_series_trend.rds")
+# result_trends <- readRDS("Data/05_result_trends.rds")
+
+
+```
+
+
+### dat_status_3
+```{r}
+
+
+if (FALSE){
+  
+  dat_status_3 <- dat_series %>%
+    left_join(dat_status_2, by = c("Country", "id", "WoRMS_scientificName", "PARAM"))
+  
+  xtabs(~addNA(Status), dat_status_3)
+  
+}
+
+
+```
+
+## APPENDIX 
+
+
+### For debugging  
+```{r}
+
+if (FALSE){
+  
+  test <- dat_status_2 %>% 
+    mutate(
+      Status2 = case_when(
+        Thresh1_basis %in% "W" & perc90_value_ww < Thresh1 ~ 1,
+        Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & is.na(Thresh2_basis) ~ 2,
+        Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww < Thresh2 ~ 3,
+        Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww >= Thresh2 ~ 4,
+        Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw < Thresh2 ~ 5,
+        Thresh1_basis %in% "W" & perc90_value_ww >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw >= Thresh2 ~ 6,
+        Thresh1_basis %in% "D" & perc90_value_dw < Thresh1 ~ 7,
+        Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & is.na(Thresh2_basis) ~ 2,
+        Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww < Thresh2 ~ 8,
+        Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "W" & perc90_value_ww >= Thresh2 ~ 9,
+        Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw < Thresh2 ~ 10,
+        Thresh1_basis %in% "D" & perc90_value_dw >= Thresh1 & Thresh2_basis %in% "L" & perc90_value_fw >= Thresh2 ~ 11,
+        TRUE ~ 12
+      )
+  ) 
+  
+  
+  # dry weight
+  param <- "CB118"
+  test %>%
+    filter(PARAM == param) %>%
+    select(PARAM, perc90_value_dw, perc90_value_ww, perc90_value_fw, 
+           Thresh1, Thresh1_basis, Thresh2, Thresh2_basis, Status, Status2) %>%
+    View(param)
+
+  param <- "CB118"
+  test %>%
+    filter(PARAM == param) %>%
+    ggplot(aes(perc90_value_dw, perc90_value_fw, color = factor(Status))) +
+    geom_point() +
+    scale_x_log10() +
+    scale_y_log10() +
+    geom_vline(aes(xintercept = 0.60)) +
+    geom_hline(aes(yintercept = 25))
+    
+  
+    }
+```
+
