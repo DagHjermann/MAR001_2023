@@ -1,7 +1,7 @@
 ---
 title: "03_Fix_station_duplicates2"
 author: "DHJ"
-date: "11 6 2021"
+date: "22 10 2024"
 output: 
   html_document:
     keep_md: true  
@@ -33,17 +33,17 @@ library(lubridate)
 library(forcats)
 
 source("02_Fix_station_duplicates_functions.R")
-
+last_year <- 2023
 ```
 
 ## 2. Read data  
 ```{r}
 
-dat_a <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
+dat_a <- readRDS("Data/01_Combined_data_with_duplicates_a_2024.rds")
 
 cat("nrow(dat_a): ", nrow(dat_a), "\n")
 
-# dat_b <- readRDS("Data/01_Combined_data_with_duplicates_b.rds")
+# dat_b <- readRDS("Data/01_Combined_data_with_duplicates_b_2024.rds")
 
 ```
 
@@ -158,7 +158,7 @@ Macoma balthica, Baltic clam, NA, 19.96,
 stringsAsFactors = FALSE,
 colClasses = c("character", "character", "double", "double"))
 
-saveRDS(df_bivalve_dryweight, "Data/03_df_bivalve_dryweight.rds")
+saveRDS(df_bivalve_dryweight, "Data/03_df_bivalve_dryweight_2024.rds")   # should be changed to 2024?
 
 species_selected <- df_bivalve_dryweight$WoRMS_scientificName
 
@@ -833,7 +833,7 @@ nrow(dat_6)
 ### Save dat_6  
 ```{r}
   
-saveRDS(dat_6, "Data/03_dat_6.rds")
+saveRDS(dat_6, "Data/03_dat_6_2024.rds")
 
 ```
 
@@ -869,7 +869,7 @@ cat("nrow(dat_7): ", nrow(dat_7), "\n")
 
 ```{r}
 
-saveRDS(dat_7, "Data/03_dat_7.rds")
+saveRDS(dat_7, "Data/03_dat_7_2024.rds")
 
 ```
 
@@ -965,7 +965,7 @@ This takes some minutes
 
 # stations_dupl <- stations_dupl[1:5]
 
-df_check_all_filename <- "Data/03_df_check_all_1a.rds"
+df_check_all_filename <- "Data/03_df_check_all_1a_2024.rds"
 
 # If we want to perform analysis anyway, set to TRUE:
 recompute_df_check_all <- FALSE
@@ -1082,8 +1082,8 @@ df_check_all_1a %>%
 df_check_all_1a <- df_check_all_1a %>%
   group_by(id, distance) %>%
   mutate(n_year = length(unique(year)),
-         n_year_2010.20 = length(unique(year[year >= 2010 & year <= 2020])),
-         n_year_2005.20 = length(unique(year[year >= 2005 & year <= 2020])),
+         n_year_2010.20 = length(unique(year[year >= (last_year - 10) & year <= last_year])),
+         n_year_2005.20 = length(unique(year[year >= (last_year - 5) & year <= last_year])),
          last_year = max(year),
          levels_ok = n_year_2010.20 >= 3,
          trend10yr_ok = n_year_2005.20 >= 5 & last_year >= 2015) %>%
@@ -1232,7 +1232,7 @@ if (FALSE){
 }
 
 if (TRUE){
-  saveRDS(df_data_from_dupl, "Data/03_df_data_from_dupl.rds")
+  saveRDS(df_data_from_dupl, "Data/03_df_data_from_dupl_2024.rds")
 }
 
 ```
@@ -1329,7 +1329,7 @@ message("Distances < ", dist_limit, " km: ",
 
 ```{r}
 
-# dat_7 <- readRDS("Data/03_dat_7.rds")
+# dat_7 <- readRDS("Data/03_dat_7_2024.rds") ???
 
 
 dat_7 %>%

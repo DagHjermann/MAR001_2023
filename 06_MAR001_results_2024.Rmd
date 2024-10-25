@@ -1,7 +1,7 @@
 ---
 title: "Results from MAR001, 2021"
 author: "DHJ"
-date: "29 10 2021"
+date: "23 10 2022"
 output:
   html_document:
     df_print: paged
@@ -53,7 +53,7 @@ knitr::opts_chunk$set(results = 'hold', echo = FALSE)
 # Simple categorical trend + status (main data)
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
 
-fn <- "Data/07_dat_status_trend.rds"
+fn <- "Data/07_dat_status_trend_2024.rds"
 dat_status_trend <- readRDS(fn)
 
 # Delete one PCB118 outlier
@@ -69,7 +69,7 @@ file.info(fn)$mtime
 # Trend including slope, will be used for meta-analysis
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
 
-dat_series_trend <- readRDS("Data/05_dat_series_trend.rds")
+dat_series_trend <- readRDS("Data/05_dat_series_trend_2024.rds")
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
 # Threshold values   
@@ -80,7 +80,7 @@ df_thresholds <- readxl::read_excel("Thresholds/MGR_05_df_thresholds.xlsx", shee
 if (FALSE){
   
   # for app
-  file.copy("Data/05_dat_status_trend.rds", 
+  file.copy("Data/05_dat_status_trend_2024.rds", 
             "app01/05_dat_status_trend.rds", overwrite = TRUE)
   file.copy("Data/05_df_thresholds.rds", 
             "app01/05_df_thresholds.rds", overwrite = TRUE)
@@ -153,7 +153,7 @@ table_status_region("Mediterranean")
 ```{r}
 
 ### SAVE ### 
-# saveRDS(meta_status_region, "Data/06_meta_status_region.rds")
+# saveRDS(meta_status_region, "Data/06_meta_status_region_2024.rds")
 # saveRDS(meta_status_msfdregion, "Data/06_meta_status_msfdregion.rds")
 
 ```
@@ -480,7 +480,7 @@ gg2
 if (TRUE){
 
   # Old version is named Relative_class_CB118_by_MSFDregion2.png", gg2, width = 9.5, height = 5, dpi = 400)
-  ggsave("Figures/Relative_class_CB118_by_MSFDregion2.png", gg2, width = 9.5, height = 5, dpi = 400)
+  ggsave("Figures/Relative_class_CB118_by_MSFDregion2_2024.png", gg2, width = 9.5, height = 5, dpi = 400)
   
 }
 
@@ -567,7 +567,7 @@ if (FALSE){
   
   a2 %>%
     as.data.frame() %>%
-    writexl::write_xlsx("Figures/2023/PCB118_by_MSFDregion_dots_fromR.xlsx") 
+    writexl::write_xlsx("Figures/2024/PCB118_by_MSFDregion_dots_fromR_2024.xlsx") 
       
   
 }
@@ -646,7 +646,7 @@ if (TRUE){
   writexl::write_xlsx(
     list(points = plotdata_points, 
          boxplot = plotdata_boxplot, `y scale` = plotdata_yscale),
-    "Figures/2023/PCB118_by_MSFDregion_plotdata.xlsx" 
+    "Figures/2024/PCB118_by_MSFDregion_plotdata_2024.xlsx" 
   )
 
   if (FALSE){

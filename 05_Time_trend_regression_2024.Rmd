@@ -1,7 +1,7 @@
 ---
 title: "05_Time_trend_regression"
 author: "DHJ"
-date: "27 10 2021"
+date: "23 10 2024"
 output: 
   html_document:
     keep_md: true
@@ -43,7 +43,7 @@ library(collateral)  # map_peacefully
 library(tidyr)
 library(ggplot2)
 library(ggeasy)
-# library(lubridate)
+library(lubridate) # now loaded
 library(forcats)
 library(broom)       # tidy
 library(R2jags)      # (in 'lm_leftcensored') 
@@ -68,7 +68,7 @@ if ("maps" %in% (.packages()))
 
 ```{r}
 
-dat_medians <- readRDS("Data/04_dat_medians.rds") %>%
+dat_medians <- readRDS("Data/04_dat_medians_2024.rds") %>%
   filter(Value > 0) %>%                      # remove zeros (due to EMODnet data < LOQ)
   mutate(
     Log_value = log10(Value),         # log10-transformed values will be used
@@ -84,7 +84,7 @@ dat_medians <- readRDS("Data/04_dat_medians.rds") %>%
 ### Raw data   
 ```{r}
 
-dat_raw <- readRDS("Data/03_dat_7.rds")
+dat_raw <- readRDS("Data/03_dat_7_2024.rds")
 
 ```
 
@@ -350,8 +350,8 @@ result_ols <- result_ols_incl_data_1 %>%
 
 # Save   
 if (save_ordinary_regression){
-  saveRDS(result_ols_incl_data, "Data/05_result_ols_incl_data.rds")
-  saveRDS(result_ols, "Data/05_result_ols.rds")
+  saveRDS(result_ols_incl_data, "Data/05_result_ols_incl_data.rds") # not saved in data folder
+  saveRDS(result_ols, "Data/05_result_ols.rds") # not saved in data folder
 }
 
 # Read back  
@@ -575,7 +575,7 @@ gg_with_eqs
 #        width = 9, height = 4, dpi = 400)
 
 # Save gg_with_eqs 
-ggsave("Figures/05_HG_North_Sea_Southwest_with_eqs.png", gg_with_eqs, 
+ggsave("Figures/05_HG_North_Sea_Southwest_with_eqs_2024.png", gg_with_eqs, 
        width = 9, height = 5.2, dpi = 400)
 
 gg
@@ -976,7 +976,7 @@ if (overwrite_saved_regression){
 
   file.copy(filename, filename_backup)
     
-  saveRDS(dat_series_trend, "Data/05_dat_series_trend.rds")
+  saveRDS(dat_series_trend, "Data/05_dat_series_trend_2024.rds")
   
   } else {
   

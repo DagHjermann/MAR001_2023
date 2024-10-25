@@ -1,7 +1,7 @@
 ---
 title: "Calculate medians for regression"
 author: "DHJ"
-date: "24 10 2021"
+date: "22 10 2024"
 output: 
   html_document:
     keep_md: true  
@@ -31,7 +31,7 @@ source("02_Fix_station_duplicates_functions.R")
 ### Main data  
 ```{r}
 
-dat_1_all <- readRDS("Data/03_dat_7.rds")
+dat_1_all <- readRDS("Data/03_dat_7_2024.rds")
 
 ```
 
@@ -57,9 +57,9 @@ nrow(dat_1)
 - Created in script 03  
 ```{r}
 
-dat_medians_from_duplicates <- readRDS("Data/03_df_data_from_dupl.rds")
+dat_medians_from_duplicates <- readRDS("Data/03_df_data_from_dupl_2024.rds")
 
-# df_duplicates <- readRDS(file = "Data/03_df_check_all.rds")
+# df_duplicates <- readRDS(file = "Data/03_df_check_all_2024.rds")
 
 ```
 
@@ -306,7 +306,7 @@ if (n1 != n2)
 ## 5. Save  
 ```{r}
 
-filename_medians <- "Data/04_dat_medians.rds"
+filename_medians <- "Data/04_dat_medians_2024.rds"
 
 # Save backup
 timestamp <- Sys.time() %>% gsub(" ", "_", .) %>% gsub(":", "-", .)

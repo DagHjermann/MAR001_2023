@@ -1,7 +1,7 @@
 ---
 title: "01_Read_and_combine_data"
 author: "DHJ"
-date: "15 1 2021"
+date: "22 10 2024"
 output: 
   html_document:
     toc: true
@@ -27,11 +27,11 @@ library(ggplot2)
 ```{r, cache = TRUE}
 
 # Files from Hans:  
-# dir("Input_data/Data_from_Hans/")
+ dir("Input_data/Data_from_Hans/")
 
 # For checking data, read just 3 rows:
-# fn <- "Input_data/From_Hans_2023/EMD_biota_2022.txt"
-# test <- read.delim(fn, colClasses = "character", nrows = 3)
+ fn <- "Input_data/From_Hans_2024/EMD_biota_2024.txt"
+ test <- read.delim(fn, colClasses = "character", nrows = 3)
 
 
 coltypes <- cols(
@@ -61,14 +61,14 @@ coltypes <- cols(
 )
 
 # Original data set, duplicates filtered using 3 decimals for lon/lat
-fn <- "Input_data/From_Hans_2023/EMD_biota_2022.txt"
+fn <- "Input_data/From_Hans_2024/EMD_biota_2024.txt"
 df1a <- readr::read_tsv(fn, col_types = coltypes)  %>%
   mutate(Year = year(Samplingtime), 
          Month = month(Samplingtime), 
          .before = everything())
 
 # Alternative data set, duplicates filtered using 2 decimals for lon/lat
-fn <- "Input_data/From_Hans_2023/EMD_biota_2022_2DECIMALS.txt"
+fn <- "Input_data/From_Hans_2024/EMD_biota_2024_2DECIMALS.txt"
 df1b <- readr::read_tsv(fn, col_types = coltypes) %>%
   mutate(Year = year(Samplingtime),
          Month = month(Samplingtime),
@@ -112,7 +112,7 @@ coltypes <- cols(
   # BotDepth = col_double()
 )
 
-df2_orig <- readr::read_tsv("Input_data/From_Hans_2023/ICES_DOME_biota_20230601_1.txt", col_types = coltypes) %>%
+df2_orig <- readr::read_tsv("Input_data/From_Hans_2024/ICES_DOME_biota_20240617.txt", col_types = coltypes) %>%
   mutate(Year = year(Samplingtime), 
          Month = month(Samplingtime), 
          .before = everything())
@@ -701,8 +701,8 @@ dat_b <- convert_units(dat_b)
 ## 6. Save  
 ```{r}
 
-saveRDS(dat_a, "Data/01_Combined_data_with_duplicates_a.rds")
-saveRDS(dat_b, "Data/01_Combined_data_with_duplicates_b.rds")
+saveRDS(dat_a, "Data/01_Combined_data_with_duplicates_a_2024.rds")
+saveRDS(dat_b, "Data/01_Combined_data_with_duplicates_b_2024.rds")
 
 # dat <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
 

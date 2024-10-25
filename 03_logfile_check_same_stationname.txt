@@ -190,3 +190,126 @@ SJY FFMTM1
 Dagnas 
 Fouesnant 
 FYN M2 
+MFS1104001 
+Adour 
+MASPRA 
+MGAARE 
+SJYALSS5001 
+MGAFPI 
+Le Croisic 
+Hendaye - Chingoudy 
+STO0201113 
+Bourgneuf - Coupelasse 
+MGALGD 
+STO0705052 
+MASRIB 
+STR 0102063 
+Adour marégraphe 
+MCALAR 
+Hendaye - Chingoudy 2 
+Pontaillac 
+MGAMFR 
+STR 0102064 
+MGAVSA 
+MCASAN 
+Hossegor limite nord parcs 
+MGAMSA 
+Le Guilvin 
+Ile Dumet (a) 
+MGAARO 
+STR 0102065 
+ÅRH 170165 
+KBH1723 
+Le Halguen 
+STR mf41001 
+MGAMUX 
+ÅRH 170166 
+Boyardville 
+MGACAI 
+ARH170006 
+MPVBIA 
+Le Pointeau 
+ARH170165 
+Riec sur Belon 
+MCASPA 
+Les Hosses 
+MPVFUE 
+MGAPIN 
+Baie d'Audierne - Penhors 
+MGACED 
+MPVIGU 
+Talmont 
+MGAPOL 
+Kvädöfjärden 
+MPVMUN 
+MGACHO 
+Tharon 
+Cap Ferret 
+VA08 / Orren 
+L'Estrée - Brouage 
+Rivedoux 
+MPVORI 
+VEJ st4 
+MCASPE 
+Baie de l'Aiguillon 
+MGACME 
+Les Jacquets 
+Bakkegr 
+Villes-Martin 
+Capbreton ouest 
+VSJ 41008 
+MCASUA 
+Barres de Pen Bron 1 
+MGAPOR 
+MGACOR 
+Roguedas 
+ROS MF41004 
+MGACRB 
+La Fosse 
+Châtelaillon 
+ROS VSJ41007 
+Les Palles 
+Mus de loup 
+MCASVI 
+MGARIB 
+Beg er Vil 
+ROS1727 
+La Jument 
+ROSNy Del 
+MCAURD 
+Noirmoutier - Gresse-loup 
+MFS0103061 
+M39 
+MFS0703001 
+MFS1001001 
+SJY FFMTM1 
+MFS1102001 
+Ciboure - La Nivelle 
+SJY HADF5010 
+MGASMO 
+SJY LBHN5003 
+Bonne Anse 
+MGACTC 
+MGAVIV 
+Bonne Anse - Palmyre 
+MASAVI 
+MGAVLG 
+La Mouclière 
+SJY LBMTM2 
+Pen Bé 
+MGAESP 
+MASGIJ 
+La Potée de beurre 
+Comprian 
+MGAFPA 
+Larmor Baden 
+MASLUA 
+Pointe de Chemoulin 
+MASNAV 
+Dagnas 
+Pointe de Mousterlin 
+Fouesnant 
+FYN 8882 
+Pointe er Fosse 
+FYN M2 
+FYN008361 
