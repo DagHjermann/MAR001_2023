@@ -10,7 +10,7 @@ output:
   word_document:
     toc: yes
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 
@@ -619,7 +619,7 @@ if (TRUE){
   gg2 <- plot_relclass_param("CB118", msfd_regions = TRUE, get_points_only = TRUE)
   plotdata_points <- dat_status_trend_relclass %>%
     filter(PARAM %in% "CB118") %>%
-    select(MSFD_region, Relclass, Status) %>%
+    select(MSFD_region, Relclass, Status, Below_LOQ) %>%
     mutate(
       x = as.numeric(MSFD_region),
       Status = as.numeric(Status)) %>%
