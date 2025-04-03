@@ -776,12 +776,19 @@ dat_status_trend %>%
 
 ```{r}
 
+# based on code in script 11  
+lookup_param_mapname <- data.frame(
+  PARAM = c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118"),
+  PARAM_commonname = c("Cd","Cu","Pb","Hg","HCB","HCHG","p,p'-DDE","BAP", "CB118")
+)
+
 tab1 <- dat_status_trend %>%
-  mutate(PARAM = factor(
-    PARAM, 
-    levels = c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118"))
+  left_join(lookup_param_mapname, by = "PARAM") %>% 
+  mutate(
+    PARAM_commonname = factor(PARAM_commonname,
+                              levels = lookup_param_mapname$PARAM_commonname)
   ) %>%
-  tabyl(Trend, PARAM)
+  tabyl(Trend, PARAM_commonname)
 
 # Percentages  
 tab2a <- tab1 %>%
@@ -796,9 +803,23 @@ for (col in 1:ncol(tab2b))
   tab2b[,col] <- as.character(tab2b[,col])
 
 # Combine
-tab_report <- bind_rows(tab2a,  tab2b[5,])
+tab_report_1 <- bind_rows(tab2a,  tab2b[5,])
 
-writexl::write_xlsx(tab_report, "Figures/Trends_overall.xlsx")
+# Fix first column
+lookup_column1 <- data.frame(
+  Trend_old = c("Decrease", "Increase", "No trend", 
+            "Trend unknown", "Total"),
+  Trend = c("Decrease (% of stations)", "Increase (% of stations)", "No trend (% of stations)", 
+              "Trend unknown (% of stations)", "Number of stations assessed")
+) 
+
+tab_report <- tab_report_1 %>%
+  rename(Trend_old = Trend) %>% 
+  left_join(lookup_column1, by = join_by(Trend_old)) %>% 
+  select(Trend_old, Trend, everything()) 
+
+# Write to excel for export to assessment 
+writexl::write_xlsx(tab_report %>% select(-Trend_old), "Figures/EXTRAFIG-MAR001.xlsx")
 
 tab_report
 
