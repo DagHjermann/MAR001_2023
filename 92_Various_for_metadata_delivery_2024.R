@@ -46,7 +46,7 @@ range(df2_orig$Latitude)
 #
 
 # Station data
-fn <- "Data/07_dat_status_trend.rds"
+fn <- "Data/07_dat_status_trend_2024.rds"
 dat_status_trend <- readRDS(fn)
 
 very_simple_map <- map_data("world")
@@ -71,7 +71,7 @@ gg <- dat_status_trend %>%
 #  easy_text_size(which = "strip.text", size = 10)
 # ?ggeasy::.all_theme_els
 
-ggsave("Figures/92_example_map_all_pointsonly.png", gg, width = 10, height = 9, dpi = 200)
+ggsave("Figures/92_example_map_all_pointsonly_2024.png", gg, width = 10, height = 9, dpi = 200)
 
 
 #
@@ -85,7 +85,7 @@ readxl::excel_sheets(fn)
 # Simple categorical trend + status (main data)
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
 
-fn <- "Data/07_dat_status_trend.rds"
+fn <- "Data/07_dat_status_trend_2024.rds"
 dat_status_trend <- readRDS(fn)
 
 # Delete one PCB118 outlier
@@ -167,7 +167,7 @@ writexl::write_xlsx(
     pies = data_map_pies,
     pie_text = data_map_pietext,
     info = data.frame(info = "One map per 'PARAM'")),
-  "Figures/2023/Maps_by_parameter_plotdata.xlsx"
+  "Figures/2024/Maps_by_parameter_plotdata_2024.xlsx"
 )
 
 #
@@ -243,7 +243,7 @@ gg <- dat_status_trend %>%
   theme(panel.background = element_rect(fill = "azure"))
 gg
 
-ggsave("Figures/92_example_map_mercury_noarrows.png", width = 6, height = 4.5, dpi = 200)
+ggsave("Figures/92_example_map_mercury_noarrows_2024.png", width = 6, height = 4.5, dpi = 200)
 
 dat_region_trend %>%
   filter(PARAM == "HG")  
@@ -276,7 +276,7 @@ plots <- unique(dat_region_status$PARAM) %>% map(plot_contaminant)
 # Combine plots in a big plot (plot to file)
 comb_plot <- cowplot::plot_grid(plotlist = plots)
 cowplot::save_plot(
-  filename = "Figures/92_map_all_contaminants.png",
+  filename = "Figures/92_map_all_contaminants_24.png",
   plot = comb_plot, 
   nrow = 3, base_asp = 2.4)
 

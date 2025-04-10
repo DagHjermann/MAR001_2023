@@ -7,6 +7,7 @@ library(dplyr)
 library(purrr)
 library(mapdata)
 library(ggeasy)
+# install.packages("ggimage")
 library(ggimage)    # geom_subview(), theme_transparent()
 
 source("92_Various_for_metadata_delivery_functions.R")
@@ -78,7 +79,8 @@ ggsave("Figures/92_example_map_all_pointsonly.png", gg, width = 10, height = 9, 
 # Region data ----
 #
 
-fn <- "Submitted/MAR001_status_trend_by_region.xlsx"
+fn <- "Submitted_to_EEA/MAR001_status_trend_by_region.xlsx"
+fn <- "Submitted_to_EEA/2024/DataPackageForMap_MAR001_2024.xlsx"
 readxl::excel_sheets(fn)
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-
@@ -178,7 +180,8 @@ writexl::write_xlsx(
 # 'make_pie_from_colours' in 03_map_pie_functions.R
 
 
-make_pie <- function(data, xvar, yvar, cols = c("1"="lightgreen", "2"="orange", "3"="red2")){
+count(MSFD_region
+      make_pie <- function(data, xvar, yvar, cols = c("1"="lightgreen", "2"="orange", "3"="red2")){
   data$x <- factor(data[[xvar]])
   data$y <- data[[yvar]]
   ggplot(data, aes(x=1, y, fill = x)) + 
@@ -279,5 +282,84 @@ cowplot::save_plot(
   filename = "Figures/92_map_all_contaminants.png",
   plot = comb_plot, 
   nrow = 3, base_asp = 2.4)
+
+
+
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+#
+# For species statistics ----
+#
+#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o#o
+
+# Data
+dat <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
+
+# Number of species
+species <- table(dat$WoRMS_accepted_scientificName) %>% names()
+length(species)
+# 182
+
+#
+# How many are fish?
+#
+
+# install.packages("rotl")
+library(rotl)
+
+taxon_search <- tnrs_match_names(names = species, context_name = "All life")
+head(taxon_search, 3)
+
+# clean out 2 NAs
+taxon_search_clean <- taxon_search %>% 
+  filter(!is.na(ott_id))
+
+# get info - takes ca 1 minute
+info <- taxonomy_taxon_info(taxon_search_clean$ott_id, include_lineage = TRUE)
+
+# get lineages
+lin <- tax_lineage(info)
+lin[[52]]  # fish = Teleostei
+lin[[39]]  # 
+
+taxon_search_clean$is_fish <- map(lin, "name") %>% map_lgl(\(x) "Teleostei" %in% x)
+sum(taxon_search_clean$is_fish)
+# 86
+
+#
+# How many fish species in/outside mediterranean?
+#
+
+# MSFD regions
+tab_area <- dat %>% 
+  distinct(MSFD_region, WoRMS_accepted_scientificName) %>% 
+  left_join(
+    taxon_search_clean %>% select(unique_name, is_fish),
+    by = c("WoRMS_accepted_scientificName" = "unique_name"), relationship = "many-to-one"
+  ) 
+
+xtabs(~is_fish  + MSFD_region, tab_area)
+
+
+# Ocean regions
+dat2 <- dat %>%
+  mutate(region = case_when(
+    MSFD_region %in% c("MAD", "MAL", "MIC", "MWE") ~ "Mediterranean",
+    MSFD_region %in% c("BLA", "BLK", "BLM") ~ "Black Sea",
+    MSFD_region %in% c("BAL") ~ "BaLtic Sea",
+    TRUE ~ "Atlantic Ocean")) %>% 
+  left_join(
+    taxon_search_clean %>% select(unique_name, is_fish),
+    by = c("WoRMS_accepted_scientificName" = "unique_name"), relationship = "many-to-one"
+  ) 
+
+xtabs(~is_fish, dat2)
+tab <- xtabs(~region + is_fish, dat2)
+tab
+tab[,2]/apply(tab,1,sum)
+
+tab_area2 <- dat2 %>%
+  distinct(region, is_fish, WoRMS_accepted_scientificName)
+xtabs(~is_fish  + region, tab_area2)
+
 
 
