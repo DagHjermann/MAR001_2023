@@ -1,0 +1,265 @@
+---
+title: "11_export_data"
+format: html
+---
+
+
+Export data to be submitted to the consortium   
+
+* 
+* Note: excel for the EQS ratio map for CB118 (`06_Relative_class_CB118_by_MSFDregion_plotdata.xlsx`) was made in script 06   
+
+
+## Libraries  
+```{r, echo = FALSE, message=FALSE, warning=FALSE, results='hide'}
+
+library(dplyr)  
+library(ggplot2)
+
+```
+
+
+## Data  
+```{r data, echo=FALSE, results='hold'}
+
+#
+# Simple categorical trend + status
+#
+
+dir("Data", "07_dat_status_trend_2024_")
+fn <- "Data/07_dat_status_trend_2024_2024-10-23_14-11-04.091695.rds"
+  
+dat_status_trend <- readRDS(fn)
+# nrow(dat_status_trend)
+
+# Delete one PCB118 outlier
+dat_status_trend <- dat_status_trend %>%
+  filter(!(id %in% "56.02833333_20.83333333" & PARAM %in% "CB118")) %>%
+  mutate(
+    Status = case_when(
+      Status == 1 ~ "Low",
+      Status == 2 ~ "Moderate",
+      Status == 3 ~ "High")
+  )
+# nrow(dat_status_trend)
+
+cat("File modified at: \n")
+file.info(fn)$mtime
+
+#
+# Meta-analysis of trends  
+#
+meta_trends_region <- readRDS("Data/06_meta_trends_region.rds")
+
+
+```
+
+## Export data for maps  
+```{r}
+
+# dir.create("Submitted")
+
+# write.csv(dat_status_trend, "Submitted/2024/MAR001_map_data_points.csv")  
+write.csv(dat_status_trend, "Submitted_to_EEA/2024/MAR001_map_data_points.csv")  
+
+writeLines(
+  c(
+    "This file contains data needed for making maps for each contaminant. ",
+    "",
+    "The most important information for this is (apart from the coordinates) the columns Trends and Status. ",
+    "Status has the values 1, 2 and 3 (low, moderate and high concentrations) and can be plotted using the colors",
+    "green, yellow and red"
+  ), 
+  "Submitted_to_EEA/2024/MAR001_map_data_points_info.csv")  
+
+
+```
+
+
+## Data for pie diagrams  
+
+### Status by region
+
+```{r, fig.width=10, fig.height=4}
+
+status_by_region <- dat_status_trend %>%
+  mutate(PARAM = factor(
+    PARAM, 
+    levels = c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118")),
+    Status = factor(Status, levels = c("Low", "Moderate", "High"))
+  ) %>%
+  count(Region, PARAM, Status, .drop = FALSE) %>%
+  group_by(PARAM, Region) %>%
+  mutate(
+    Total = sum(n)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    `Percent (for parameter/region)` = round(100*n/Total,1)
+  )
+
+```
+
+
+### Trends by region   
+
+* Not included in finbal excel  
+
+```{r, fig.width=10, fig.height=4}
+
+trend_by_region <- dat_status_trend %>%
+  mutate(PARAM = factor(
+    PARAM, 
+    levels = c("CD","CU","PB","HG","HCB","HCHG","DDEPP","BAP", "CB118"))
+  ) %>%
+  count(PARAM, Region, Trend) %>%
+  group_by(PARAM, Region) %>%
+  mutate(
+    Total = sum(n)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    `Percent (for parameter/region)` = round(100*n/Total,1)
+  )
+  
+
+```
+
+
+### Meta-analysis of trends  
+
+```{r}
+
+# names(meta_trends_region) %>% paste(collapse = ", ")
+
+trend_by_region_meta <- meta_trends_region %>%
+  select(PARAM, Region, Change_perc_10yr, Change_perc_10yr_lo, Change_perc_10yr_up, 
+         overall_trend = `Overall trend`) %>%
+  filter(PARAM %in% unique(status_by_region$PARAM))
+
+
+```
+
+
+### Save in excel  
+
+#### Parameter names to use in output  
+
+* See https://www.eea.europa.eu/en/analysis/indicators/hazardous-substances-in-marine-organisms
+
+```{r}
+
+unique(dat_status_trend$PARAM) %>% dput()
+unique(dat_status_trend$Status) %>% dput()
+unique(dat_status_trend$Trend) %>% dput()
+unique(trend_by_region_meta$`Overall trend`) %>% dput()
+
+lookup_param_mapname <- data.frame(
+  PARAM = c("BAP", "CB118", "CD", "CU", "DDEPP", "HCB", "HCHG", "HG", "PB"),
+  map_name = c("BAP", "CB118", "Cd", "Cu", "p,p'-DDE", "HCB", "HCHG", "Hg", "Pb")
+)
+
+lookup_arrow_direction <- data.frame(
+  overall_trend = c("No sign. pattern", "Downward", "Upward"),
+  arrow_direction = c("Towards the right", "Downward", "Upward"),
+  legend = c("No change", "Improvement (decreasing concentrations)", 
+             "Detoriation (increasing concentrations)")
+)
+
+points_on_map <- dat_status_trend %>% 
+  left_join(lookup_param_mapname, by = join_by(PARAM), relationship = "many-to-one") %>% 
+  select(map_name, Longitude, Latitude, Concentrations = Status, `Concentration trend` = Trend)
+
+pie_plots <- status_by_region %>% 
+  left_join(lookup_param_mapname, by = join_by(PARAM), relationship = "many-to-one") %>% 
+  select(map_name, Region, Status, Percentage = `Percent (for parameter/region)`)
+
+pie_plots_arrows <- trend_by_region_meta %>% 
+  left_join(lookup_param_mapname, by = join_by(PARAM), relationship = "many-to-one") %>%
+  left_join(lookup_arrow_direction, by = join_by(overall_trend), relationship = "many-to-one") %>% 
+  select(map_name, Region, arrow_direction, legend)
+
+colours <- data.frame(
+  c("High", "Moderate", "Low"),
+  c("Red", "Yellow", "Green")
+)
+
+
+```
+#### Make and save excel data  
+
+```{r}
+
+data_list <-   list(
+  "Points on map" = points_on_map,
+  "Pie plots" = pie_plots, 
+  "Colours (map and pies)" = colours, 
+  "Pie plots arrows" = pie_plots_arrows,
+  "Info" = data.frame(
+    Sheet = c(
+      "Points on map",
+      "Pie plots", 
+      "Pie plots arrows"),
+    Info = c(
+      "Points on Europe map, with shape (column 'Concentration trend') and colour (column Concentration)",
+      "Pie plots for each region. Percentages sum to 100% for each combintion of parameter and region",
+      "Regional concentration trend, shown as arrows next to pies (not enough data for Mediterranean pies)"
+    )
+  )
+)
+
+str(data_list, 1)
+
+writexl::write_xlsx(data_list, "Submitted_to_EEA/2024/MAR001_DataPackageFig1_before_edit.xlsx")
+
+
+```
+
+## Test graphs  
+
+### status_by_region  
+
+```{r, fig.width=9, fig.height=3}
+
+ggplot(status_by_region, aes(x = PARAM, y = `Percent (for parameter/region)`, fill = Status)) +
+  geom_col() +
+  scale_fill_manual(values = c("green3", "yellow", "red3")) +
+  facet_wrap(vars(Region))
+
+
+```
+
+### status_by_region, pie plot  
+
+```{r}
+
+ggplot(status_by_region, aes(x = "", y = `Percent (for parameter/region)`, fill = Status)) +
+  geom_col() +
+  scale_fill_manual(values = c("green3", "yellow", "red3")) +
+  coord_polar(theta = "y") +
+  facet_grid(vars(Region), vars(PARAM))
+
+```
+
+### trend_by_region  
+
+```{r, fig.width=9, fig.height=3}
+
+# ggplot(trend_by_region, aes(x = PARAM, y = `Percent (for parameter/region)`, fill = factor(Trend))) +
+#   geom_col() +
+#   scale_fill_manual(values = c("green3", "red3", "grey60", "grey30")) +
+#   facet_wrap(vars(Region))
+
+```
+
+
+```{r, fig.width=9, fig.height=7}
+
+ggplot(trend_by_region_meta, aes(x = Region, y = Change_perc_10yr)) +
+  geom_pointrange(aes(ymin = Change_perc_10yr_lo, ymax = Change_perc_10yr_up, color = `Overall trend`)) +
+  geom_hline(yintercept = 0) +
+  scale_colour_manual(values = c("Downward" = "green3", "No sign. pattern" = "grey30")) +
+  coord_flip(ylim = range(trend_by_region_meta$Change_perc_10yr)) +
+  facet_wrap(vars(PARAM))  
+
+```
