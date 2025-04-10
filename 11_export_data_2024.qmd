@@ -156,7 +156,7 @@ unique(trend_by_region_meta$`Overall trend`) %>% dput()
 
 lookup_param_mapname <- data.frame(
   PARAM = c("BAP", "CB118", "CD", "CU", "DDEPP", "HCB", "HCHG", "HG", "PB"),
-  map_name = c("BAP", "CB118", "Cd", "Cu", "p,p'-DDE", "HCB", "HCHG", "Hg", "Pb")
+  map_name = c("B(a)P", "PCB118", "Cd", "Cu", "p,p'-DDE", "HCB", "HCHG", "Hg", "Pb")
 )
 
 lookup_arrow_direction <- data.frame(
