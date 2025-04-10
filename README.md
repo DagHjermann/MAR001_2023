@@ -8,20 +8,25 @@ Note: the scripts are based on the 2021 version
 
 ## Script overview    
 
-* The order of scripts is as below (note that it doesn't strictly follow the script numbers):    
+* The order of scripts is as below (note that 7 should be run before 6!):    
     - 01 - read raw data from the two sources    
     - 03 - based on data from 01, remove duplicated data (data that are in both sources) and make 'cleaned' data   
     - 04 - based on data from 03, make per-year medians  
     - 05 - based on data from 04 and 07, perform time series analysis  
     - 07 - based on data from 04, perform status classification    
-    - 06 - based on results from 05 and 07, make output tables and graphs  
+    - 06 - based on results from 05 and 07, make output tables and graphs
+        - also produces Submitted_to_EEA/EXTRAFIG-MAR001.xlsx (table summarizing trends in EEA Fig. 1)
+        - also produces EEA Fig. 2, Relative class of CB118 by area  
+    - 11 - based on results from 07, make data for EEA Fig. 1  
     
 * Function scripts (contains functions used by other scripts - should not normally need to be opened)   
     - 02_Fix_station_duplicates_functions.R (used by script 03)   
     - 05_Time_trend_regression_functions.R (used by script 05)  
     
 * Input data  
-    - Folder Input_data
+    - Folder Input_data  
+    
+* 
     
 * Other files
     - Thresholds/MGR_05_df_thresholds.xlsx - used by scr 07, contains thesholds (EQS etc) used for classification (low/medium/high concentration)    
