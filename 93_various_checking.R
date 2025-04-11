@@ -1,6 +1,9 @@
 
 
+# load package(s)
 library(dplyr)
+
+# load data (from script 01)
 dat_a <- readRDS("Data/01_Combined_data_with_duplicates_a.rds")
 
 #
