@@ -550,14 +550,18 @@ plot_relclass_param <- function(param,
     filter(Relclass > max_relclass) %>%
     count(Region) %>%
     mutate(Relclass = max_relclass + 0.1, 
-           labeltext = paste0("Over ", max_relclass, ":\n", n, " stations"))
+           labeltext = paste0("Over ", max_relclass-2, " x EQS:\n", n, " stations"))
   
   gg <- ggplot(data_for_plot %>% filter(Relclass <= max_relclass), 
                aes(x = Region, y = Relclass)) +
     geom_boxplot(outlier.shape = NA) +
     geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
     scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red")) +
-    scale_y_continuous(breaks = 0:max_relclass, minor_breaks = NULL, limits = c(0, max_relclass + 0.8)) + 
+    scale_y_continuous(
+      breaks = 0:max_relclass, 
+      minor_breaks = NULL, 
+      limits = c(0, max_relclass + 0.8),
+      labels = c("", "0", "BAC", "EQS", paste0(seq(2, max_relclass-2), "x EQS"))) + 
     geom_text(data = above_plot_border, aes(label = labeltext), 
               vjust = -0.3, size = rel(3), lineheight = 0.9) +
     labs(y = "Relative status class") +
@@ -581,7 +585,8 @@ plot_relclass_param <- function(param,
       geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
       scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red"))
   }  
-  gg
+  gg +
+    theme(panel.grid.minor.y = element_blank())
   
 }
 
@@ -625,7 +630,8 @@ plot_relclass_param2 <- function(param,
   above_plot_border <- data_for_plot %>%
     filter(Relclass > max_relclass) %>%
     count(Region) %>%
-    mutate(Relclass = max_relclass + 0.1, labeltext = paste0("Over ", max_relclass, ":\n", n, " stations"))
+    mutate(Relclass = max_relclass + 0.1, 
+           labeltext = paste0("Over ", max_relclass-2, " x EQS:\n", n, " stations"))
   
   gg <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
                aes(x = Region, y = Relclass)) +
@@ -635,7 +641,11 @@ plot_relclass_param2 <- function(param,
               binwidth = binwidth, overflow = overflow) +
     scale_shape_manual(values = c(21,25)) +
     scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red")) +
-    scale_y_continuous(breaks = 0:max_relclass, minor_breaks = NULL, limits = c(0, max_relclass + 0.8)) + 
+    scale_y_continuous(
+      breaks = 0:max_relclass, 
+      minor_breaks = NULL, 
+      limits = c(0, max_relclass + 0.8),
+      labels = c("", "0", "BAC", "EQS", paste0(seq(2, max_relclass-2), "x EQS"))) + 
     geom_text(data = above_plot_border, aes(label = labeltext), 
               vjust = -0.3, size = rel(3), lineheight = 0.9) +
     # guides(shape = "none") + 
@@ -660,7 +670,8 @@ plot_relclass_param2 <- function(param,
       geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
       scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red"))
   }  
-  gg
+  gg +
+    theme(panel.grid.minor.y = element_blank())
   
 }
 
