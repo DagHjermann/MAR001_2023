@@ -485,7 +485,7 @@ plot_relclass_param <- function(param,
     filter(Relclass > max_relclass) %>%
     count(Region) %>%
     mutate(Relclass = max_relclass + 0.1, 
-           labeltext = paste0("Over ", max_relclass-2, " x EQS:\n", n, " stations"))
+           labeltext = paste0("Over ", max_relclass-2, "x EQS:\n", n, " stations"))
   
   gg <- ggplot(data_for_plot %>% filter(Relclass <= max_relclass), 
                aes(x = Region, y = Relclass)) +
@@ -582,7 +582,7 @@ plot_relclass_param2 <- function(param,
     filter(Relclass > max_relclass) %>%
     count(Region) %>%
     mutate(Relclass = max_relclass + 0.1, 
-           labeltext = paste0("Over ", max_relclass-2, " x EQS:\n", n, " stations"))
+           labeltext = paste0("Over ", max_relclass-2, "x EQS:\n", n, " stations"))
   
   gg <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
                aes(x = Region, y = Relclass)) +
