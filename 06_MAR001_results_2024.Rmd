@@ -467,12 +467,6 @@ gg <- plot_relclass_param2("CB118", msfd_regions = TRUE,
                            binwidth = 0.15, overflow = "compress")
 
 gg2 <- gg +
-  scale_y_continuous(
-    limits = c(1,10.8),
-    breaks = seq(0,10), 
-    labels = c("", "0", "BAC", "EQS", paste0(2:8, "x EQS"))
-  ) +
-  theme(panel.grid.minor.y = element_blank()) +
   geom_vline(aes(xintercept = 3.5)) +
   geom_vline(aes(xintercept = 6.5))
 gg2
