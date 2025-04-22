@@ -602,7 +602,8 @@ plot_relclass_param2 <- function(param,
                                 exclude_norway_regions = TRUE,
                                 get_boxplot_only = FALSE,
                                 get_points_only = FALSE,
-                                binwidth = 0.12, overflow = "compress"){
+                                binwidth = 0.12, overflow = "compress",
+                                max_relclass = 10){
   
   data_for_plot <- dat_status_trend_relclass %>%
     filter(PARAM %in% param) %>%
@@ -622,19 +623,19 @@ plot_relclass_param2 <- function(param,
       filter(!Region %in% c("Norwegian Sea", "Barents Sea", "Icelandic Ocean"))
   
   above_plot_border <- data_for_plot %>%
-    filter(Relclass > 10) %>%
+    filter(Relclass > max_relclass) %>%
     count(Region) %>%
-    mutate(Relclass = 10.1, labeltext = paste("Over 10:\n", n, "stations"))
+    mutate(Relclass = max_relclass + 0.1, labeltext = paste0("Over ", max_relclass, ":\n", n, " stations"))
   
   gg <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
                aes(x = Region, y = Relclass)) +
     geom_boxplot(outlier.shape = NA) +
     # geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
-    geom_dots(aes(fill = Status, shape = Measurement), color = "black", linewidth = 0.35, side = "both", 
+    ggdist::geom_dots(aes(fill = Status, shape = Measurement), color = "black", linewidth = 0.35, side = "both", 
               binwidth = binwidth, overflow = overflow) +
     scale_shape_manual(values = c(21,25)) +
     scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red")) +
-    scale_y_continuous(breaks = 0:10, minor_breaks = NULL, limits = c(0,10.8)) + 
+    scale_y_continuous(breaks = 0:max_relclass, minor_breaks = NULL, limits = c(0, max_relclass + 0.8)) + 
     geom_text(data = above_plot_border, aes(label = labeltext), 
               vjust = -0.3, size = rel(3), lineheight = 0.9) +
     # guides(shape = "none") + 
@@ -649,12 +650,12 @@ plot_relclass_param2 <- function(param,
   
   # get_boxplot_only and get_points_only are only for extracting plot data
   if (get_boxplot_only){
-    gg <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
+    gg <- ggplot(data_for_plot %>% filter(Relclass <= max_relclass), 
                  aes(x = Region, y = Relclass)) +
       geom_boxplot(outlier.shape = NA)
   }
   if (get_points_only){
-    gg <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
+    gg <- ggplot(data_for_plot %>% filter(Relclass <= max_relclass), 
                  aes(x = Region, y = Relclass)) +
       geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
       scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red"))
