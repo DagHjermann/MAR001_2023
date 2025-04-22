@@ -532,7 +532,8 @@ plot_relclass_param <- function(param,
                                 exclude_norway_regions = TRUE,
                                 get_boxplot_only = FALSE,
                                 get_points_only = FALSE,
-                                max_relclass = 10){
+                                max_relclass = 10,
+                                y_axis_text = TRUE){
   
   data_for_plot <- dat_status_trend_relclass %>%
     filter(PARAM %in% param) %>%
@@ -566,6 +567,21 @@ plot_relclass_param <- function(param,
               vjust = -0.3, size = rel(3), lineheight = 0.9) +
     labs(y = "Relative status class") +
     theme_bw() 
+  
+  if (y_axis_text){
+    gg <- gg +
+      scale_y_continuous(
+        breaks = 1:max_relclass, 
+        minor_breaks = NULL, 
+        limits = c(1, max_relclass + 0.8),
+        labels = c("0", "BAC", "EQS", paste0(seq(2, max_relclass-2), "x EQS")))
+  } else {
+    gg <- gg +
+      scale_y_continuous(
+        breaks = 0:max_relclass, 
+        minor_breaks = NULL, 
+        limits = c(0, max_relclass + 0.8))
+  }
   
   if (msfd_regions){      
     gg <- gg +
@@ -607,8 +623,9 @@ plot_relclass_param2 <- function(param,
                                 exclude_norway_regions = TRUE,
                                 get_boxplot_only = FALSE,
                                 get_points_only = FALSE,
-                                binwidth = 0.12, overflow = "compress",
-                                max_relclass = 10){
+                                binwidth = 0.15, overflow = "compress",
+                                max_relclass = 10,
+                                y_axis_text = TRUE){
   
   data_for_plot <- dat_status_trend_relclass %>%
     filter(PARAM %in% param) %>%
@@ -641,16 +658,26 @@ plot_relclass_param2 <- function(param,
               binwidth = binwidth, overflow = overflow) +
     scale_shape_manual(values = c(21,25)) +
     scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red")) +
-    scale_y_continuous(
-      breaks = 0:max_relclass, 
-      minor_breaks = NULL, 
-      limits = c(0, max_relclass + 0.8),
-      labels = c("", "0", "BAC", "EQS", paste0(seq(2, max_relclass-2), "x EQS"))) + 
     geom_text(data = above_plot_border, aes(label = labeltext), 
               vjust = -0.3, size = rel(3), lineheight = 0.9) +
     # guides(shape = "none") + 
     labs(y = "Relative status class") +
     theme_bw() 
+  
+  if (y_axis_text){
+    gg <- gg +
+      scale_y_continuous(
+        breaks = 1:max_relclass, 
+        minor_breaks = NULL, 
+        limits = c(1, max_relclass + 0.8),
+        labels = c("0", "BAC", "EQS", paste0(seq(2, max_relclass-2), "x EQS")))
+  } else {
+    gg <- gg +
+      scale_y_continuous(
+        breaks = 0:max_relclass, 
+        minor_breaks = NULL, 
+        limits = c(0, max_relclass + 0.8))
+  }
   
   if (msfd_regions){      
     gg <- gg +
