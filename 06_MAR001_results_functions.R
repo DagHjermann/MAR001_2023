@@ -584,19 +584,42 @@ plot_relclass_param2 <- function(param,
     mutate(Relclass = max_relclass + 0.1, 
            labeltext = paste0("Over ", max_relclass-2, "x EQS:\n", n, " stations"))
   
-  gg <- ggplot(data_for_plot %>% filter(Relclass <= (max_relclass-2)), 
-               aes(x = Region, y = Relclass)) +
-    geom_boxplot(outlier.shape = NA) +
-    # geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
-    ggdist::geom_dots(aes(fill = Status, shape = Measurement), color = "black", linewidth = 0.35, side = "both", 
-              binwidth = binwidth, overflow = overflow) +
-    scale_shape_manual(values = c(21,25)) +
-    scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red")) +
+  gg1 <- ggplot(data_for_plot %>% filter(Relclass <= (max_relclass-2)), 
+               aes(x = Region, y = Relclass))
+  
+  gg_add_box <- function(gg) {
+    gg + geom_boxplot(outlier.shape = NA)
+  }
+
+  
+  gg_add_points <- function(gg) {
+    gg + 
+      ggdist::geom_dots(aes(fill = Status, shape = Measurement), color = "black", linewidth = 0.35, side = "both", 
+                        binwidth = binwidth, overflow = overflow) +
+      # jitter version was: geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21)
+      scale_shape_manual(values = c(21,25)) +
+      scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red"))
+  }
+  
+  # get_boxplot_only and get_points_only are mostly used for extracting plot data
+  if (get_boxplot_only){
+    gg2 <- gg1 |>
+      gg_add_box()
+  } else if (get_points_only){
+    gg2 <- gg1 |>
+      gg_add_points()
+  } else {
+    gg2 <- gg1 |>
+      gg_add_box() |>
+      gg_add_points()
+  }
+  gg <- gg2 +
     geom_text(data = above_plot_border, aes(label = labeltext), 
               vjust = -0.3, size = rel(3), lineheight = 0.9) +
     # guides(shape = "none") + 
     labs(y = "Relative status class") +
-    theme_bw() 
+    theme_bw() +
+    theme(panel.grid.minor.y = element_blank()) 
   
   if (y_axis_text){
     gg <- gg +
@@ -618,21 +641,8 @@ plot_relclass_param2 <- function(param,
       theme(axis.text.x = element_text(angle = -35, hjust = 0)) +
       labs(x = "MSFD region")
   }
-  
-  # get_boxplot_only and get_points_only are only for extracting plot data
-  if (get_boxplot_only){
-    gg <- ggplot(data_for_plot %>% filter(Relclass <= max_relclass), 
-                 aes(x = Region, y = Relclass)) +
-      geom_boxplot(outlier.shape = NA)
-  }
-  if (get_points_only){
-    gg <- ggplot(data_for_plot %>% filter(Relclass <= max_relclass), 
-                 aes(x = Region, y = Relclass)) +
-      geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
-      scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red"))
-  }  
-  gg +
-    theme(panel.grid.minor.y = element_blank())
+   
+  gg
   
 }
 
