@@ -482,197 +482,92 @@ if (TRUE){
 
 ```
 
-#### Get point data  
-
-* With exact x values for each point  
-* Using 'geom_dotplot' (from ggplot2) instead of geom_dots (from ggdist) in order for 'ggplot_build' to work 
+#### Get boxplot data  
 
 ```{r}
 
-#
-# make 'data_for_plot', using code from 'plot_relclass_param2'  
-#
-data_for_plot <- dat_status_trend_relclass %>%
-  filter(PARAM %in% "CB118") %>%
+gg_boxplot <- plot_relclass_param2("CB118", msfd_regions = TRUE,
+                                   binwidth = 0.15, overflow = "compress", 
+                                   get_boxplot_only = TRUE)
+
+dd_boxplot <- layer_data(gg_boxplot)
+
+x_labels <- c("Adriatic Sea", "Ionia Sea and central Med.", "Western Mediterranean Sea", 
+              "Greater North Sea", "Celtic Seas", "Bay of Biscay / Iberian coast", 
+              "Baltic Sea")
+
+plotdata_boxplot <- dd_boxplot %>%
+  select(x, ymin, lower, middle, upper, ymax) %>%
+  rename(
+    `lower end of bar`= ymin,
+    `lower end of box`= lower,
+    `line inside box`= middle,
+    `upper end of box`= upper,
+    `upper end of bar`= ymax) %>%
   mutate(
-    Measurement = factor(
-      ifelse(Below_LOQ, "Under LOQ", "Quantified"),
-      levels = c("Quantified", "Under LOQ"))
-  ) %>%
-  as.data.frame()
+    x = as.numeric(x),
+    x_label = x_labels[x], .before = 1)
 
-data_for_plot <- data_for_plot %>%
-  mutate(Region = MSFD_region)
+plotdata_boxplot %>%
+  as.data.frame() %>%
+  writexl::write_xlsx("Figures/2024/PCB118_by_MSFDregion_boxplot_fromR_2024.xlsx")
 
-data_for_plot <- data_for_plot %>%
-  filter(!Region %in% c("Norwegian Sea", "Barents Sea", "Icelandic Ocean"))
+ggplot(plotdata_boxplot, aes(x_label)) +
+  geom_point(aes(y=`lower end of bar`), shape = 6) +
+  geom_point(aes(y=`lower end of box`), shape = 6, color = "red2") +
+  geom_point(aes(y=`line inside box`), shape = 15, color = "blue3") +
+  geom_point(aes(y=`upper end of box`), shape = 2, color = "red2") +
+  geom_point(aes(y=`upper end of bar`), shape = 2)
 
-#
-# make simple plot (points only)  
-#
-gg3 <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
-              aes(x = factor(Region), y = Relclass)) +
-  # Using 'geom_dotplot' (from ggplot2) instead of geom_dots (from ggdist) in order for 'ggplot_build' to work
-  geom_dotplot(aes(colour = Measurement, fill = addNA(Status)), 
-               binaxis = "y", stackdir = "center", binwidth = 0.15)
-#  gg3
+```
+
+#### Get point data  
+
+* With exact x values for each point  
+* Using 'geom_dotplot' (from ggplot2) instead of geom_dots (from ggdist) in order for 'ggplot_build' to work   
+
+```{r}
+
+# point data
+# debugonce(plot_relclass_param2)
+gg_points <- plot_relclass_param2("CB118", msfd_regions = TRUE,
+                                  binwidth = 0.15, overflow = "compress", 
+                                  get_points_for_data = TRUE)
+
+dd_points <- layer_data(gg_points)
 
 #
 # use ggplot_build to get the data for that plot
 # - this contains the columns 'x' (1,2,3...) and stackpos (1, -0.5, 0, 0.5, 1, ...) 
 # - see plot example below for how rto use x and stackpos
 
-a <- ggplot_build(gg3)$data[[1]]
-
-#
-# test plot
-#
-ggplot(a, aes(x + stackpos*0.05, y, shape = colour, colour = fill)) + 
-  geom_point() +
-  scale_shape_manual(values = c(25,21)) 
-
-if (FALSE){
-  
-  #
-  # for writing excel
-  #
-  
-  a2 <- a %>%
-    mutate(
-      Measurement = factor(
-        ifelse(colour == "#00BFC4", "Under LOQ", "Quantified"),
-        levels = c("Quantified", "Under LOQ")),
-      Status = case_when(
-        fill == "#F8766D" ~ "1",
-        fill == "#00BA38" ~ "2",
-        fill == "#619CFF" ~ "3",
-        fill == "grey50" ~ "NA"),
-      Colour = case_when(
-        fill == "#F8766D" ~ "green",
-        fill == "#00BA38" ~ "yellow",
-        fill == "#619CFF" ~ "red",
-        fill == "grey50" ~ "grey")
-    ) %>%
+dd_points <- ggplot_build(gg_points)$data[[1]] %>% 
+  mutate(
+    Measurement = factor(
+      ifelse(colour == "grey50", "Under LOQ", "Quantified"),
+      levels = c("Quantified", "Under LOQ")),
+    Status = case_when(
+      fill == "green3" ~ "1",
+      fill == "yellow2" ~ "2",
+      fill == "red" ~ "3",
+      fill == "grey50" ~ "NA"),
+    Colour = case_when(
+      fill == "green3" ~ "green",
+      fill == "yellow2" ~ "yellow",
+      fill == "red" ~ "red",
+      fill == "grey50" ~ "grey")
+  ) %>%
     select(x, y, stackpos, Measurement, Status, Colour)
   
-  ggplot(a2, aes(x + stackpos*0.05, y, shape = Measurement, colour = Status)) + 
-    geom_point() +
-    scale_shape_manual(values = c(21,25)) 
-  
-  a2 %>%
-    as.data.frame() %>%
-    writexl::write_xlsx("Figures/2024/PCB118_by_MSFDregion_dots_fromR_2024.xlsx") 
-      
-  
-}
-  
-```
+dd_points %>%
+  as.data.frame() %>%
+  writexl::write_xlsx("Figures/2024/PCB118_by_MSFDregion_dots_fromR_2024.xlsx")
 
-
-#### Data for excel  
-```{r}
-
-
-if (TRUE){
-
-  #
-  # Save plot data for EEA (start - writing excel is further down)
-  #
-  # boxplot data
-  gg_boxplot <- plot_relclass_param2("CB118", msfd_regions = TRUE, get_boxplot_only = TRUE)
-  dd_boxplot <- layer_data(gg_boxplot)
-  
-  x_labels <- c("Adriatic Sea", "Ionia Sea and central Med.", "Western Mediterranean Sea", 
-                "Greater North Sea", "Celtic Seas", "Bay of Biscay / Iberian coast", 
-                "Baltic Sea")
-  
-  plotdata_boxplot <- dd_boxplot %>%
-    select(x, ymin, lower, middle, upper, ymax) %>%
-    rename(
-      `lower end of bar`= ymin,
-      `lower end of box`= lower,
-      `line inside box`= middle,
-      `upper end of box`= upper,
-      `upper end of bar`= ymax) %>%
-    mutate(
-      x = as.numeric(x),
-      x_label = x_labels[x], .before = 1)
-  
-  # test <- layer_data(gg2, 2)
-  # nrow(test)
-  # ggplot(test, aes(x, y, shape = factor(shape))) +
-  #   geom_point()
-  
-  # point colours
-  plotdata_colors <- data.frame(
-    Status = 1:3,
-    colour = c("green", "yellow", "red")
-  )
-  
-  # point data
-  gg2 <- plot_relclass_param("CB118", msfd_regions = TRUE, get_points_only = TRUE)
-  plotdata_points <- dat_status_trend_relclass %>%
-    filter(PARAM %in% "CB118") %>%
-    select(MSFD_region, Relclass, Status, Below_LOQ) %>%
-    mutate(
-      x = as.numeric(MSFD_region),
-      Status = as.numeric(Status)) %>%
-    left_join(plotdata_colors) %>%
-    mutate(
-      colour = case_when(
-        is.na(colour) ~ "grey",
-        TRUE ~ colour),
-      shape = case_when(
-        Below_LOQ ~ "triangle pointing down",
-        TRUE ~ "circle")
-    ) %>%
-    rename(x_label = MSFD_region, 
-           y = Relclass) %>%
-    select(x, x_label, y, colour)
-  
-  plotdata_yscale <- data.frame(
-    y = 0:9,
-    y_label = c("0", "BAC", "EQS", paste0(2:8, "x EQS"))
-  )
-
-  # Save to excel
-  # Manual changes: change column with, reduce number of digits
-  writexl::write_xlsx(
-    list(points = plotdata_points, 
-         boxplot = plotdata_boxplot, `y scale` = plotdata_yscale),
-    "Figures/2024/PCB118_by_MSFDregion_plotdata_2024.xlsx" 
-  )
-
-  if (FALSE){
-    
-    # test box plot
-    ggplot(plotdata_boxplot, aes(x, group = x)) +
-      geom_boxplot(aes(lower=lower, upper=upper, middle=middle, ymin=ymin, ymax=ymax), stat = "identity")
-    ggplot(plotdata_boxplot %>% mutate(MSFD_region = fct_inorder(MSFD_region)), 
-           aes(MSFD_region, group = MSFD_region)) +
-      geom_boxplot(aes(lower=lower, upper=upper, middle=middle, ymin=ymin, ymax=ymax), stat = "identity")
-    
-    # test points
-    ggplot() +
-      geom_jitter(data = plotdata_points, aes(x,y, color = colour))
-
-    # test box plot + points
-    ggplot(plotdata_boxplot, aes(x)) +
-      geom_boxplot(aes(group = x, lower=lower, upper=upper, middle=middle, ymin=ymin, ymax=ymax), 
-                   stat = "identity") +
-      geom_point(data = plotdata_points, aes(x, y, color = colour))
-    
-  }
-  ggplot2::ggplot_build(gg2)
-  
-  y_axis_labels <- data.frame(
-    y = seq(0,10), 
-    labels = c("", "0", "BAC", "EQS", paste0(2:8, "x EQS"))
-  )
-
-
-}
-
+stackdist <- 0.05
+cols = c("1" = "green3", "3" = "red", "2" = "yellow2", "NA" = "grey50")
+ggplot(dd_points, aes(x + stackdist*stackpos, y, fill = Status))+
+  geom_point(colour = "black", shape = 21) +     # see ?points for shape values
+  scale_fill_manual(values = cols)
 
 ```
 
