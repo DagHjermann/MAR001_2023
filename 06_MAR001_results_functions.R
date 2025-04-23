@@ -557,6 +557,7 @@ plot_relclass_param2 <- function(param,
                                 exclude_norway_regions = TRUE,
                                 get_boxplot_only = FALSE,
                                 get_points_only = FALSE,
+                                get_points_for_data = FALSE,
                                 binwidth = 0.15, overflow = "compress",
                                 max_relclass = 10,
                                 y_axis_text = TRUE){
@@ -591,9 +592,10 @@ plot_relclass_param2 <- function(param,
     gg + geom_boxplot(outlier.shape = NA)
   }
 
-  
   gg_add_points <- function(gg) {
     gg + 
+      # ggdist::geom_dots handles shape 
+      # ggplot2::geom_dotplot ignores shape but results 
       ggdist::geom_dots(aes(fill = Status, shape = Measurement), color = "black", linewidth = 0.35, side = "both", 
                         binwidth = binwidth, overflow = overflow) +
       # jitter version was: geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21)
@@ -601,6 +603,17 @@ plot_relclass_param2 <- function(param,
       scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red"))
   }
   
+  gg_add_points_for_data <- function(gg) {
+    gg + 
+      # ggdist::geom_dots handles shape 
+      # ggplot2::geom_dotplot ignores shape but results 
+      ggplot2::geom_dotplot(aes(fill = addNA(Status)), color = "black", 
+                            binaxis = "y", stackdir = "center", 
+                            binwidth = binwidth, overflow = overflow) +
+      # jitter version was: geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21)
+      scale_shape_manual(values = c(21,25)) +
+      scale_fill_manual(values = c(`1` = "green3", `2` = "yellow2", `3` = "red"))
+  }
   # get_boxplot_only and get_points_only are mostly used for extracting plot data
   if (get_boxplot_only){
     gg2 <- gg1 |>
@@ -608,6 +621,9 @@ plot_relclass_param2 <- function(param,
   } else if (get_points_only){
     gg2 <- gg1 |>
       gg_add_points()
+  } else if (get_points_for_data){
+    gg2 <- gg1 |>
+      gg_add_points_for_data()
   } else {
     gg2 <- gg1 |>
       gg_add_box() |>
