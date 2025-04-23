@@ -584,7 +584,7 @@ plot_relclass_param2 <- function(param,
     mutate(Relclass = max_relclass + 0.1, 
            labeltext = paste0("Over ", max_relclass-2, "x EQS:\n", n, " stations"))
   
-  gg <- ggplot(data_for_plot %>% filter(Relclass <= 10), 
+  gg <- ggplot(data_for_plot %>% filter(Relclass <= (max_relclass-2)), 
                aes(x = Region, y = Relclass)) +
     geom_boxplot(outlier.shape = NA) +
     # geom_jitter(aes(fill = Status), alpha = 0.3, width = 0.25, shape = 21) +
