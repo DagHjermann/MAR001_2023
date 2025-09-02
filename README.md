@@ -1,6 +1,13 @@
 # MAR001_2023
 
 Scripts for analysis of levels and trends of marine contaminants at the European level for ETC, 2023  
+
+**Notes for 2026 (16 June 2025 - ):**
+    * Make interactive - Tablau is what is used  
+        * Cannot be scripted unfortunately  
+    * Gridded data (but not by lat/long - ask someone what is used)  
+    * EEA wants more species (and contaminants?)   
+    
   
 Note: the scripts are based on the 2021 version  
 - 
@@ -80,7 +87,8 @@ Note: the scripts are based on the 2021 version
 * 06: Reads data from 05 and 07 (especially) and makes all output tables and graphs used to write assessment text  
     
     - The calculation of 'relative class' is done in this script   
-    - There is also a version '06_MAR001_results_2021_BEFORE_UPDATE_2022-06-17.Rmd' using the old, erronous data from scr 07
+    - There is also a version '06_MAR001_results_2021_BEFORE_UPDATE_2022-06-17.Rmd' using the old, erronous data from scr 07  
+    - Also performs meta-analysis for 
 
 * 07: Reads data from 04, perform status classification, combines the result and produces data for script 05
 
