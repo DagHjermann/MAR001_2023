@@ -313,3 +313,627 @@ FYN 8882
 Pointe er Fosse 
 FYN M2 
 FYN008361 
+95120021 
+EastChan_TorBay_sh02 
+IrishSea_BelfastLoughInnr_sh09 
+LIM-3728-2 
+LIM-3728-3 
+EScotland_DonEstSouterHd_sh01 
+LIM-3730-1 
+L'Estrée - Brouage 
+IrishSea_BelfastLoughInnr_sh10 
+MGACRB 
+St Germain de Varreville 
+Ravenoville (b) 
+IrishSea_BelfastLoughInnr_sh11 
+EScotland_LowerTayEstuary_sh02 
+RIB 2162020 
+Aber Benoît 
+IrishSea_BelfastLoughInnr_sh12 
+RIB LISD5001 
+Fermanville 
+RIB2151001 
+Bdv Grandcamp Ouest 
+IrishSea_CarlingfordLough_sh02 
+M39 
+IrishSea_CarlingfordLough_sh03 
+Adour 
+IrishSea_CarlingfordLough_sh04 
+Nidingen 
+La Fosse 
+IrishSea_CarlingfordLough_sh06 
+RIB2161010 
+NJY MF st1 
+St Michel en Grève 
+MGACTC 
+NJY MF st2 
+IrishSea_Conwy_sh02 
+MASAVI 
+Beg er Vil 
+STO0102063 
+RIB2161022 
+La Gauthier 
+NJY MSS3 
+Adour marégraphe 
+IrishSea_DeeNWales_sh01 
+NJY Thisted Bredning 
+MGAESP 
+MASGIJ 
+STO0102065 
+Fjällbacka 
+IrishSea_DundrumBayInner_sh02 
+La Jument 
+STO0201113 
+Beg Nod 
+Forth_ElieBuckhaven_sh01 
+Noirmoutier - Gresse-loup 
+IrishSea_LarneLoughSouth_sh02 
+STO0705052 
+NORM-Asaa 
+NORM-hirts-Fyr 
+MGAFPA 
+MASLUA 
+NORM-KONGSDAL 
+STR 0102064 
+NORM-Loenstrup 
+Ambleteuse 
+NORM-Palmestrn 
+Riec sur Belon 
+NORM-Rugholm 
+NORM-Saeby-syd 
+Anglia_Nkent_sh05 
+STR mf41001 
+Forth_KinghornLeithDocks_sh02 
+MASNAV 
+IrishSea_LiverpoolBay_sh01 
+MGAFPI 
+Suguensou 
+Anglia_StourEX_sh01 
+NSJ230011 
+Octeville 
+Berck Bellevue 
+MASPRA 
+Forth_LowerForthEstuary_sh01 
+La Mouclière 
+MGALGD 
+IrishSea_Mersey_sh01 
+Bernières 
+Anglia_ThamesLw_sh01 
+Rivedoux 
+RKB-VE3 
+RKB-VE43 
+La Potée de beurre 
+MGAMFR 
+Fouesnant 
+Anholt 
+Antifer 
+MASRIB 
+Talmont 
+IrishSea_MorecambeBay_sh01 
+FRB 65s 
+MCALAR 
+IrishSea_MorecambeBay_sh04 
+MGAMSA 
+Ouistreham 
+Larmor Baden 
+Bonne Anse 
+IrishSea_MorecambeBay_sh05 
+MCASAN 
+Tharon 
+Bonne Anse - Palmyre 
+MGAMUX 
+FRB65 
+IrishSea_NewryEstuary_sh01 
+FYN 8882 
+TyneTees_Esk_sh01 
+Roguedas 
+Le Croisic 
+ROS 2043 
+Antifer - digue 
+IrishSea_Ribble_fi01 
+ROS 220001 
+Oye plage 
+TyneTees_HolyBudl_sh01 
+MGAPIN 
+IrishSea_SolwayEstuary_sh01 
+FYN M2 
+TyneTees_SNorthumb_sh03 
+MCASPA 
+Bourgneuf - Coupelasse 
+IrishSea_StrangfordLoughN_sh01 
+MGAPOL 
+FYN008361 
+ÅRH 170165 
+FYN8752 
+ROS 60 
+Le Guilvin 
+Galterö 
+ÅRH 170166 
+ROS FRB8550 
+TyneTees_Tees_sh03 
+ARH170006 
+Le Halguen 
+ROS MF41004 
+Goury 
+ROS VSJ41007 
+Pen al Lann 
+TyneTees_Tyne_sh02 
+IrishSea_StrangfordLoughS_fi01 
+VA08 / Orren 
+MCASPE 
+ROS1727 
+ROSNy Del 
+ARH170165 
+ARH190069 
+Boyardville 
+ARH220301 
+MGAPOR 
+IrishSea_StrangfordLoughS_sh02 
+KBH1723 
+MCASUA 
+Le Moulard 
+Grande rade de Cherbourg 
+Pen Bé 
+ARH230987 
+Hebrides_LochRoag_sh01 
+KBK L1 
+MGARIB 
+Varengeville 
+Penzé rive droite 
+ARH230988 
+Rossermeur 
+MCASVI 
+KBKLYN 
+Bréville 
+ARH230989 
+ARH259001 
+Brofjorden (Stretudden) 
+Severn_Camel_sh02 
+Le Passage (b) 
+Byttelocket 
+Persuel 
+Hendaye - Chingoudy 
+Severn_MilfordHav_sh02 
+MGASMO 
+MCAURD 
+Vaucottes 
+MCR230010 
+Severn_Ncornw_sh05 
+Le Pointeau 
+Hendaye - Chingoudy 2 
+VEJ st4 
+Severn_TawTorr_sh01 
+Le Ratier 
+Cancale 
+SJY FFML2015 
+MGAVIV 
+Kervel 
+Meuvaines ouest 
+Veulettes 
+Koljöfjord 
+MFS0103061 
+Kopparholmarna (G6) 
+MFS0703001 
+VIB 3705-1 
+MFS1001001 
+Kosterfjorden (NR16) 
+Hermanville 
+MGAVLG 
+MFS1102001 
+SJY FFMTM1 
+Aulne Rive droite 
+MFS1104001 
+SJY HADF5010 
+Pirou Nord 
+Villers sur mer 
+Hossegor limite nord parcs 
+Baie d'Audierne - Penhors 
+MGAARE 
+Cap de la Hève 
+Le Vivier sur mer 
+HumWash_HumberLow_sh01 
+SJY JDMTM1 
+Kvädöfjärden 
+SJY LBHN5003 
+95120021 
+Les Hosses 
+MGAVSA 
+Pointe de Chemoulin 
+HumWash_Witham_sh01 
+Villerville 
+SJY LBMTM2 
+Baie de l'Aiguillon 
+MinchMalin_LochEtive_sh01 
+Ile Dumet (a) 
+SJYALSS5001 
+MGAARO 
+Cap Ferret 
+IrishSea_ArdsPenninsula_sh04 
+Pointe de Mousterlin 
+IrishSea_BalcaryPoint_sh01 
+MinchMalin_LochEwe_sh01 
+Villerville 2 
+SJYLISD5001 
+Aber Benoît 
+IrishSea_BelfastLoughInnr_fi01 
+MGACAI 
+MinchMalin_LochSpelve_sh01 
+IrishSea_BelfastLoughInnr_sh07 
+Les Jacquets 
+MinchMalin_LoughFoyle_sh02 
+Capbreton ouest 
+Villes-Martin 
+Baie de la Fresnaye 
+Adour 
+VSJ 41008 
+MinchMalin_LoughFoyle_sh03 
+Baie de Lampaul 
+CardBay_Mawddac_sh02 
+IrishSea_BelfastLoughInnr_sh08 
+MinchMalin_LoughFoyle_sh04 
+MGACED 
+WestChan_Dart_sh01 
+Pointe de St Quentin 
+WestChan_PlymSo_sh02 
+EastChan_TorBay_sh02 
+Morsalines 
+Baie de Morieux 
+EScotland_DonEstSouterHd_sh01 
+WShetland_GrutingVoe_sh01 
+Les Palles 
+Baie St Michel est 6 
+Yport 
+Bdv Grandcamp Ouest 
+MGACHO 
+Adour marégraphe 
+Châtelaillon 
+LIM-3705-1 
+Bakkegr 
+IrishSea_BelfastLoughInnr_sh09 
+EScotland_LowerTayEstuary_sh02 
+LIM-3708-1 
+MPVBIA 
+Barres de Pen Bron 1 
+MGACME 
+Chausey 
+Fermanville 
+LIM-3708-2 
+Pointe du Roselier 
+Pointe du Siège 
+IrishSea_BelfastLoughInnr_sh10 
+LIM-3708-5 
+LIM-3711-3 
+Bas fort Blanc 
+LIM-3711-5 
+IrishSea_BelfastLoughInnr_sh11 
+MPVFUE 
+Ambleteuse 
+Beg er Vil 
+MPVIGU 
+Anglia_Nkent_sh05 
+MGACOR 
+LIM-3718-2 
+IrishSea_BelfastLoughInnr_sh12 
+L'Estrée - Brouage 
+LIM-3720-1 
+IrishSea_CarlingfordLough_sh02 
+LIM-3722-1 
+Pointe er Fosse 
+Anglia_StourEX_sh01 
+LIM-3728-2 
+Ciboure - La Nivelle 
+LIM-3723-2 
+IrishSea_CarlingfordLough_sh03 
+LIM-3728-3 
+MPVMUN 
+LIM-3730-1 
+LIM-3727-1 
+LIM-3727-3 
+LIM-3728-1 
+IrishSea_CarlingfordLough_sh04 
+IrishSea_CarlingfordLough_sh06 
+Beg Nod 
+MPVORI 
+Clyde_FirthCInnerDunoon_sh01 
+MSJ230027 
+Fjällbacka 
+Anglia_ThamesLw_sh01 
+IrishSea_Conwy_sh02 
+MGACRB 
+Anholt 
+Antifer 
+Pontaillac 
+M39 
+Forth_ElieBuckhaven_sh01 
+La Fosse 
+IrishSea_DeeNWales_sh01 
+Forth_KinghornLeithDocks_sh02 
+Berck Bellevue 
+IrishSea_DundrumBayInner_sh02 
+La Gauthier 
+Comprian 
+IrishSea_LarneLoughSouth_sh02 
+MASAVI 
+Bernières 
+Forth_LowerForthEstuary_sh01 
+Mus de loup 
+MGACTC 
+Antifer - digue 
+Port en Bessin (a) 
+La Jument 
+IrishSea_LiverpoolBay_sh01 
+MASGIJ 
+Fouesnant 
+Bonne Anse 
+Port Morvan 
+FRB 65s 
+MGAESP 
+ÅRH 170165 
+IrishSea_Mersey_sh01 
+Bonne Anse - Palmyre 
+Dagnas 
+MASLUA 
+ÅRH 170166 
+ARH170006 
+Danafjord 
+Ravenoville (b) 
+FRB65 
+MGAFPA 
+MASNAV 
+IrishSea_MorecambeBay_sh01 
+FYN 8882 
+RIB 2162020 
+La Mouclière 
+Nidingen 
+IrishSea_MorecambeBay_sh04 
+Digue nord du Havre 
+NJY MF st1 
+RIB LISD5001 
+DMU Hornbk 
+IrishSea_MorecambeBay_sh05 
+NJY MF st2 
+ARH170165 
+RIB2151001 
+MASPRA 
+DMU Roskilde M 
+ARH190069 
+MGAFPI 
+ARH220301 
+Bourgneuf - Coupelasse 
+La Potée de beurre 
+DMU SjlOdde 
+FYN M2 
+IrishSea_NewryEstuary_sh01 
+NJY MSS3 
+NJY Thisted Bredning 
+MGALGD 
+EastChan_Exe_sh01 
+ARH230987 
+FYN008361 
+Larmor Baden 
+RIB2161010 
+FYN8752 
+MASRIB 
+Galterö 
+IrishSea_Ribble_fi01 
+MCALAR 
+EastChan_LangstHar_sh01 
+MGAMFR 
+EastChan_PooleHar_fi01 
+IrishSea_SolwayEstuary_sh01 
+RIB2161022 
+ARH230988 
+Goury 
+Noirmoutier - Gresse-loup 
+MCASAN 
+NORM-Asaa 
+IrishSea_StrangfordLoughN_sh01 
+NORM-hirts-Fyr 
+Le Croisic 
+NORM-KONGSDAL 
+ARH230989 
+Boyardville 
+NORM-Loenstrup 
+MGAMSA 
+ARH259001 
+NORM-Palmestrn 
+NORM-Rugholm 
+EastChan_SouthanWa_sh01 
+NORM-Saeby-syd 
+MGAMUX 
+NSJ230011 
+Octeville 
+St Germain de Varreville 
+Grande rade de Cherbourg 
+Riec sur Belon 
+IrishSea_StrangfordLoughS_fi01 
+Le Guilvin 
+Hebrides_LochRoag_sh01 
+MCASPA 
+Aulne Rive droite 
+Le Halguen 
+MGAPIN 
+IrishSea_StrangfordLoughS_sh02 
+Bréville 
+Brofjorden (Stretudden) 
+KBH1723 
+Baie d'Audierne - Penhors 
+Byttelocket 
+MGAPOL 
+Ouistreham 
+St Michel en Grève 
+KBK L1 
+Rivedoux 
+RKB-VE3 
+RKB-VE43 
+Cancale 
+Hendaye - Chingoudy 
+STO0102063 
+MCASPE 
+Le Moulard 
+Hendaye - Chingoudy 2 
+KBKLYN 
+STO0102065 
+Baie de l'Aiguillon 
+Oye plage 
+Hermanville 
+MCASUA 
+STO0201113 
+MGAPOR 
+Cap de la Hève 
+Hossegor limite nord parcs 
+STO0705052 
+Kervel 
+Roguedas 
+Koljöfjord 
+STR 0102064 
+Kopparholmarna (G6) 
+ROS 2043 
+Kosterfjorden (NR16) 
+Le Passage (b) 
+STR mf41001 
+MCASVI 
+ROS 220001 
+HumWash_HumberLow_sh01 
+Suguensou 
+MGARIB 
+Baie de la Fresnaye 
+Le Pointeau 
+Baie de Lampaul 
+Pen al Lann 
+Le Ratier 
+MCAURD 
+ROS 60 
+MCR230010 
+HumWash_Witham_sh01 
+Cap Ferret 
+Baie de Morieux 
+Kvädöfjärden 
+ROS FRB8550 
+Ile Dumet (a) 
+ROS MF41004 
+MGASMO 
+Meuvaines ouest 
+ROS VSJ41007 
+Baie St Michel est 6 
+MFS0103061 
+IrishSea_ArdsPenninsula_sh04 
+MFS0703001 
+Talmont 
+IrishSea_BalcaryPoint_sh01 
+MFS1001001 
+MFS1102001 
+Pen Bé 
+Bakkegr 
+MGAVIV 
+MFS1104001 
+Capbreton ouest 
+IrishSea_BelfastLoughInnr_fi01 
+ROS1727 
+ROSNy Del 
+Le Vivier sur mer 
+Barres de Pen Bron 1 
+CardBay_Mawddac_sh02 
+IrishSea_BelfastLoughInnr_sh07 
+Tharon 
+MGAVLG 
+MGAARE 
+Penzé rive droite 
+Bas fort Blanc 
+TyneTees_Esk_sh01 
+Les Hosses 
+IrishSea_BelfastLoughInnr_sh08 
+Persuel 
+Châtelaillon 
+TyneTees_HolyBudl_sh01 
+Rossermeur 
+TyneTees_SNorthumb_sh03 
+Chausey 
+Severn_Camel_sh02 
+MGAVSA 
+MGAARO 
+Severn_MilfordHav_sh02 
+Les Jacquets 
+TyneTees_Tees_sh03 
+MinchMalin_LochEtive_sh01 
+Severn_Ncornw_sh05 
+Pirou Nord 
+Severn_TawTorr_sh01 
+SJY FFML2015 
+MGACAI 
+MinchMalin_LochEwe_sh01 
+Ciboure - La Nivelle 
+TyneTees_Tyne_sh02 
+VA08 / Orren 
+SJY FFMTM1 
+MinchMalin_LochSpelve_sh01 
+SJY HADF5010 
+MinchMalin_LoughFoyle_sh02 
+MGACED 
+Les Palles 
+MinchMalin_LoughFoyle_sh03 
+Clyde_FirthCInnerDunoon_sh01 
+LIM-3705-1 
+Pointe de Chemoulin 
+MinchMalin_LoughFoyle_sh04 
+SJY JDMTM1 
+LIM-3708-1 
+SJY LBHN5003 
+LIM-3708-2 
+Morsalines 
+MGACHO 
+LIM-3708-5 
+LIM-3711-3 
+Varengeville 
+LIM-3711-5 
+Pointe de Mousterlin 
+MGACME 
+SJY LBMTM2 
+LIM-3718-2 
+SJYALSS5001 
+LIM-3720-1 
+MPVBIA 
+LIM-3722-1 
+LIM-3723-2 
+Comprian 
+LIM-3727-1 
+Vaucottes 
+LIM-3727-3 
+SJYLISD5001 
+LIM-3728-1 
+VEJ st4 
+Pointe de St Quentin 
+MGACOR 
+MPVFUE 
+Veulettes 
+VIB 3705-1 
+MPVIGU 
+Villers sur mer 
+MPVMUN 
+Dagnas 
+Danafjord 
+Pointe du Roselier 
+Pointe du Siège 
+MPVORI 
+MSJ230027 
+Digue nord du Havre 
+DMU Hornbk 
+DMU Roskilde M 
+DMU SjlOdde 
+Villerville 
+Pointe er Fosse 
+EastChan_Exe_sh01 
+Villerville 2 
+EastChan_LangstHar_sh01 
+Mus de loup 
+EastChan_PooleHar_fi01 
+Villes-Martin 
+Pontaillac 
+VSJ 41008 
+EastChan_SouthanWa_sh01 
+WestChan_Dart_sh01 
+WestChan_PlymSo_sh02 
+WShetland_GrutingVoe_sh01 
+Yport 
+Port en Bessin (a) 
+Port Morvan 
