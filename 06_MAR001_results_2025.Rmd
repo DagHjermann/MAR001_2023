@@ -596,7 +596,7 @@ if (TRUE){
     geom_vline(aes(xintercept = 4.5)) +
     geom_vline(aes(xintercept = 7.5))
 
-  ggsave("Figures/Relative_class_HG_by_MSFDregion.png", gg2, width = 8, height = 5, dpi = 400)
+  ggsave("Figures/2025/Relative_class_HG_by_MSFDregion.png", gg2, width = 8, height = 5, dpi = 400)
   
 }
 
@@ -708,7 +708,7 @@ tab_report <- tab_report_1 %>%
   select(Trend_old, Trend, everything()) 
 
 # Write to excel for export to assessment 
-writexl::write_xlsx(tab_report %>% select(-Trend_old), "Figures/EXTRAFIG-MAR001.xlsx")
+writexl::write_xlsx(tab_report %>% select(-Trend_old), "Figures/2025/EXTRAFIG-MAR001.xlsx")
 
 tab_report
 
@@ -925,8 +925,8 @@ xtabs(~ addNA(MSFD_region) + MSFD_region2, meta_trends_msfdregion)
 
 ### SAVE ### 
 
-saveRDS(meta_trends_region, "Data/06_meta_trends_region.rds")
-saveRDS(meta_trends_msfdregion, "Data/06_meta_trends_msfdregion.rds")
+saveRDS(meta_trends_region, "Data/06_meta_trends_region_2025.rds")
+saveRDS(meta_trends_msfdregion, "Data/06_meta_trends_msfdregion_2025.rds")
 
 ```
 
@@ -1045,7 +1045,7 @@ if (TRUE){
     geom_vline(aes(xintercept = 4.5)) +
     geom_vline(aes(xintercept = 7.5))
 
-  ggsave("Figures/Meta_trend_HG_by_MSFDregion.png", gg, width = 6, height = 3, dpi = 400)
+  ggsave("Figures/2025/Meta_trend_HG_by_MSFDregion.png", gg, width = 6, height = 3, dpi = 400)
   
 }
 
@@ -1081,7 +1081,7 @@ if (TRUE){
   set.seed(43)
   gg <- plot_slope_msfdregion("DDEPP")  
 
-  ggsave("Figures/Meta_trend_DDEPP_by_MSFDregion.png", gg, width = 6, height = 3, dpi = 400)
+  ggsave("Figures/2025/Meta_trend_DDEPP_by_MSFDregion.png", gg, width = 6, height = 3, dpi = 400)
   
 }
 
@@ -1106,7 +1106,7 @@ if (TRUE){
   set.seed(43)
   gg <- plot_slope_msfdregion("CB118")  
 
-  ggsave("Figures/Meta_trend_CB118_by_MSFDregion.png", gg, width = 6, height = 3, dpi = 400)
+  ggsave("Figures/2025/Meta_trend_CB118_by_MSFDregion.png", gg, width = 6, height = 3, dpi = 400)
   
 }
 
@@ -1138,6 +1138,7 @@ if (TRUE){
       `inset barplot` = dd
     ),
     "Figures/06_Relative_class_CB118_by_MSFDregion_plotdata.xlsx"
+    
   )
   
   
