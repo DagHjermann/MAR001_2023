@@ -173,3 +173,34 @@ ggplot(dat2 %>%
        x = "Station ID",
        y = "Trend estimate")  
 
+
+
+
+#
+# Check meta-analysis of trends (Cd in 2025 vs the year before) ----
+#
+# Especially 
+#
+
+dat_series_trend <- readRDS("Data/05_dat_series_trend_2024.rds")
+dat_series_trend %>% filter(PARAM == "CD") %>% xtabs(~Region + trend, .)
+dat_series_trend %>% 
+  filter(PARAM == "CD") %>% 
+  # group_by(Region) %>% 
+  # summarise()
+  ggplot(aes(id, Slope, color = trend)) +
+  geom_point() +
+  facet_wrap(vars(Region)) +
+  labs(title = "2024")
+
+dat_series_trend <- readRDS("Data/05_dat_series_trend_2025.rds")
+dat_series_trend %>% filter(PARAM == "CD") %>% xtabs(~Region + trend, .)
+dat_series_trend %>% 
+  filter(PARAM == "CD") %>% 
+  # group_by(Region) %>% 
+  # summarise()
+  ggplot(aes(id, Slope, color = trend)) +
+  geom_point() +
+  facet_wrap(vars(Region)) +
+  labs(title = "2025")
+
