@@ -19,7 +19,7 @@ editor_options:
 library(dplyr)
 library(purrr)
 library(furrr)       # future_map
-library(collateral)  # map_peacefully
+# library(collateral)  # map_peacefully
 library(tidyr)
 library(ggplot2)
 library(ggeasy)
@@ -475,6 +475,7 @@ if (TRUE){
 
   # Old version is named Relative_class_CB118_by_MSFDregion2.png", gg2, width = 9.5, height = 5, dpi = 400)
   ggsave("Figures/Relative_class_CB118_by_MSFDregion2_2025.png", gg2, width = 9.5, height = 5, dpi = 400)
+  ggsave("Figures/2025/Relative_class_CB118_by_MSFDregion2_2025.svg", gg2, width = 9.5, height = 5, dpi = 400)
   
 }
 
@@ -558,14 +559,24 @@ dd_points <- ggplot_build(gg_points)$data[[1]] %>%
       fill == "grey50" ~ "grey")
   ) %>%
     select(x, y, stackpos, Measurement, Status, Colour)
-  
-dd_points %>%
-  as.data.frame() %>%
-  writexl::write_xlsx("Figures/2025/PCB118_by_MSFDregion_dots_fromR_2025.xlsx")
 
-stackdist <- 0.05
+stackdist_for_delivery <- 0.04
+list_of_pointdata <- list(
+  dd_points = dd_points %>% 
+    as.data.frame(),
+  points = dd_points %>% 
+    mutate(
+      x = x + stackdist_for_delivery*stackpos,
+      Shape = case_when(
+        Colour %in% "grey" ~ "triangle pointing down",
+        TRUE ~ "round"))
+)
+
+writexl::write_xlsx(list_of_pointdata, "Figures/2025/PCB118_by_MSFDregion_dots_fromR_2025.xlsx")
+
+stackdist_fig <- 0.05
 cols = c("1" = "green3", "3" = "red", "2" = "yellow2", "NA" = "grey50")
-ggplot(dd_points, aes(x + stackdist*stackpos, y, fill = Status))+
+ggplot(dd_points, aes(x + stackdist_fig*stackpos, y, fill = Status))+
   geom_point(colour = "black", shape = 21) +     # see ?points for shape values
   scale_fill_manual(values = cols)
 
