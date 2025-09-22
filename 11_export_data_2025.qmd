@@ -27,7 +27,7 @@ library(ggplot2)
 #
 
 dir("Data", "07_dat_status_trend_2025")
-fn <- "Data/07_dat_status_trend_2024_2024-10-23_14-11-04.091695.rds"
+fn <- "Data/07_dat_status_trend_2025.rds"
   
 dat_status_trend <- readRDS(fn)
 # nrow(dat_status_trend)
@@ -152,7 +152,7 @@ trend_by_region_meta <- meta_trends_region %>%
 unique(dat_status_trend$PARAM) %>% dput()
 unique(dat_status_trend$Status) %>% dput()
 unique(dat_status_trend$Trend) %>% dput()
-unique(trend_by_region_meta$`Overall trend`) %>% dput()
+unique(trend_by_region_meta$overall_trend) %>% dput()
 
 lookup_param_mapname <- data.frame(
   PARAM = c("BAP", "CB118", "CD", "CU", "DDEPP", "HCB", "HCHG", "HG", "PB"),
@@ -256,7 +256,7 @@ ggplot(status_by_region, aes(x = "", y = `Percent (for parameter/region)`, fill 
 ```{r, fig.width=9, fig.height=7}
 
 ggplot(trend_by_region_meta, aes(x = Region, y = Change_perc_10yr)) +
-  geom_pointrange(aes(ymin = Change_perc_10yr_lo, ymax = Change_perc_10yr_up, color = `Overall trend`)) +
+  geom_pointrange(aes(ymin = Change_perc_10yr_lo, ymax = Change_perc_10yr_up, color = overall_trend )) +
   geom_hline(yintercept = 0) +
   scale_colour_manual(values = c("Downward" = "green3", "No sign. pattern" = "grey30")) +
   coord_flip(ylim = range(trend_by_region_meta$Change_perc_10yr)) +
